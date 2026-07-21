@@ -41,9 +41,9 @@ class DatabridgeRepository
         return $this->buildUserTicketsQuery($username)
             ->selectRaw('DISTINCT ticket.id, ticket.headline, ticket.projectId, ticket.status, ticket.planHours, ticket.hourRemaining, ticket.tags, ticket.dateToFinish, ticket.editTo, ticket.milestoneid, ticket.modified, editor.username')
             ->where('ticket.id', '>=', $start)
-            ->when($dateFrom !== null, fn ($query) => $query->where('ticket.dateToFinish', '>=', $dateFrom))
-            ->when($dateTo !== null, fn ($query) => $query->where('ticket.dateToFinish', '<=', $dateTo))
-            ->when($statusIds !== null, fn ($query) => $query->whereIn('ticket.status', $statusIds))
+            ->when(null !== $dateFrom, fn ($query) => $query->where('ticket.dateToFinish', '>=', $dateFrom))
+            ->when(null !== $dateTo, fn ($query) => $query->where('ticket.dateToFinish', '<=', $dateTo))
+            ->when(null !== $statusIds, fn ($query) => $query->whereIn('ticket.status', $statusIds))
             ->orderBy('ticket.id', 'ASC')
             ->limit($limit)
             ->get()
@@ -62,7 +62,7 @@ class DatabridgeRepository
 
         $entityAColumn = $this->getEntityAColumnName();
 
-        if ($entityAColumn !== null) {
+        if (null !== $entityAColumn) {
             $query->leftJoin('zp_user as collab_user', function ($join) use ($username) {
                 $join->where('collab_user.username', '=', $username);
             })

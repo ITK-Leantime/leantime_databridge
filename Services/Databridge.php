@@ -27,7 +27,7 @@ class Databridge
     public function getTickets(string $username, int $start, int $limit, ?string $dateFrom, ?string $dateTo, ?string $status = null): array
     {
         $statusIds = null;
-        if ($status !== null) {
+        if (null !== $status) {
             $statusIds = $this->resolveStatusIds($username, strtoupper($status));
             if (empty($statusIds)) {
                 return [];
@@ -61,7 +61,7 @@ class Databridge
      */
     private function getCarbonFromDatabaseValue(mixed $value): ?CarbonImmutable
     {
-        return $value !== null && $value !== '0000-00-00 00:00:00'
+        return null !== $value && '0000-00-00 00:00:00' !== $value
             ? CarbonImmutable::createFromFormat(self::DATE_FORMAT, $value, 'UTC')
             : null;
     }
@@ -71,7 +71,7 @@ class Databridge
      */
     private function getMilestoneId(mixed $value): ?int
     {
-        return $value->milestoneid !== null && $value->milestoneid > 0 ? (int) $value->milestoneid : null;
+        return null !== $value->milestoneid && $value->milestoneid > 0 ? (int) $value->milestoneid : null;
     }
 
     /**

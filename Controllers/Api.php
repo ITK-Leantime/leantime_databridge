@@ -29,7 +29,7 @@ class Api extends Controller
     {
         $username = trim($input['username'] ?? '');
 
-        if ($username === '') {
+        if ('' === $username) {
             return new JsonResponse(
                 ['error' => 'The "username" parameter is required.'],
                 400,
@@ -41,7 +41,7 @@ class Api extends Controller
         $dateFrom = $input['dateFrom'] ?? null;
         $dateTo = $input['dateTo'] ?? null;
         $status = isset($input['status']) ? trim($input['status']) : null;
-        $status = $status !== '' ? $status : null;
+        $status = '' !== $status ? $status : null;
 
         $results = $this->databridgeService->getTickets($username, $start, $limit, $dateFrom, $dateTo, $status);
 

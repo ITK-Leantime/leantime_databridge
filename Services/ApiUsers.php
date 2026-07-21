@@ -30,7 +30,7 @@ class ApiUsers
     {
         $presentedKey = trim((string) $presentedKey);
 
-        if ($presentedKey === '') {
+        if ('' === $presentedKey) {
             throw new InvalidApiKeyException('Missing API key');
         }
 
@@ -72,6 +72,8 @@ class ApiUsers
      */
     private function loadEntries(): array
     {
+        // env() rather than config(): plugins cannot extend Leantime's custom config map
+        // (laravelConfig.php), and Leantime's bootstrap does not use Laravel config caching.
         $path = env('LEAN_DATABRIDGE_AUTH_FILE') ?: APP_ROOT.'/config/databridge_auth.yaml';
 
         if (! is_file($path) || ! is_readable($path)) {
@@ -101,7 +103,7 @@ class ApiUsers
         foreach ($data['users'] as $index => $userData) {
             $entry = $this->validateUser(is_array($userData) ? $userData : [], (string) $index);
 
-            if ($entry === null) {
+            if (null === $entry) {
                 continue;
             }
 
@@ -136,7 +138,7 @@ class ApiUsers
     {
         $name = is_string($userData['name'] ?? null) ? trim($userData['name']) : '';
 
-        if ($name === '') {
+        if ('' === $name) {
             Log::error('Databridge auth: skipping user without a valid "name"', ['entry' => $index]);
 
             return null;
@@ -144,7 +146,7 @@ class ApiUsers
 
         $key = is_string($userData['key'] ?? null) ? trim($userData['key']) : '';
 
-        if ($key === '') {
+        if ('' === $key) {
             Log::error('Databridge auth: skipping user without a valid "key"', ['name' => $name]);
 
             return null;
@@ -152,7 +154,7 @@ class ApiUsers
 
         $operationValues = $userData['operations'] ?? null;
 
-        if (! is_array($operationValues) || $operationValues === []) {
+        if (! is_array($operationValues) || [] === $operationValues) {
             Log::error('Databridge auth: skipping user without a valid "operations" list', ['name' => $name]);
 
             return null;
@@ -162,7 +164,7 @@ class ApiUsers
         foreach ($operationValues as $value) {
             $operation = is_string($value) ? Operation::tryFrom(strtolower(trim($value))) : null;
 
-            if ($operation === null) {
+            if (null === $operation) {
                 Log::error('Databridge auth: skipping user with unknown operation', [
                     'name' => $name,
                     'operation' => is_scalar($value) ? (string) $value : gettype($value),

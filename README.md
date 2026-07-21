@@ -51,7 +51,10 @@ users:
 ### POC limitations
 
 - Keys are stored in plaintext (same trust level as the DB password in `config/.env`).
-- No brute-force lockout and no key expiry yet.
+- No key expiry or rotation yet.
+
+Failed authentication attempts are throttled: more than 20 failures per minute from the
+same IP returns `429 Too Many Requests`.
 
 ## Endpoint
 
@@ -204,4 +207,12 @@ The key is valid but its user lacks the operation the endpoint requires.
 
 ```json
 {"error": "Operation not permitted for this API key"}
+```
+
+### Too many failed attempts (429)
+
+More than 20 failed authentications per minute from the same IP.
+
+```json
+{"error": "Too many failed authentication attempts. Try again later."}
 ```
