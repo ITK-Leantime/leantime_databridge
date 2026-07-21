@@ -3,6 +3,7 @@
 namespace Leantime\Plugins\Databridge\Controllers;
 
 use Leantime\Core\Controller\Controller;
+use Leantime\Plugins\Databridge\Model\ApiUser;
 use Leantime\Plugins\Databridge\Model\ResponseData;
 use Leantime\Plugins\Databridge\Services\Databridge;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -23,13 +24,17 @@ class Api extends Controller
     }
 
     /**
-     * Get tickets filtered by username with optional date range.
+     * Get tickets filtered by username with optional date range, scoped to the API
+     * user's granted projects.
+     *
+     * $apiUser is deliberately non-nullable: a route wired without ApiKeyAuth fails
+     * loudly instead of silently serving all projects.
      */
-    public function tickets(array $input): JsonResponse
+    public function tickets(array $input, ApiUser $apiUser): JsonResponse
     {
         $username = trim($input['username'] ?? '');
 
-        if ($username === '') {
+        if ('' === $username) {
             return new JsonResponse(
                 ['error' => 'The "username" parameter is required.'],
                 400,
@@ -41,9 +46,9 @@ class Api extends Controller
         $dateFrom = $input['dateFrom'] ?? null;
         $dateTo = $input['dateTo'] ?? null;
         $status = isset($input['status']) ? trim($input['status']) : null;
-        $status = $status !== '' ? $status : null;
+        $status = '' !== $status ? $status : null;
 
-        $results = $this->databridgeService->getTickets($username, $start, $limit, $dateFrom, $dateTo, $status);
+        $results = $this->databridgeService->getTickets($username, $start, $limit, $dateFrom, $dateTo, $status, $apiUser->projects);
 
         return new JsonResponse(
             (new ResponseData(

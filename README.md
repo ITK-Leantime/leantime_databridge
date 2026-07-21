@@ -17,9 +17,54 @@ php bin/leantime plugin:enable Databridge
 
 ## Authentication
 
-Requires a Leantime API key passed via the `x-api-key` header.
+The plugin uses its **own** API keys, defined in a YAML file — core Leantime API keys
+(`lt_...`) are **not** accepted on these endpoints. The key is passed via the `x-api-key`
+header.
 
-Create an API key in **Settings > API** in the Leantime UI.
+### Setup
+
+1. Copy `databridge_auth.sample.yaml` (in this plugin) to `<leantime>/config/databridge_auth.yaml`
+   — next to Leantime's `.env`, **not** inside the plugin folder (deploys may overwrite it).
+2. Generate a key per consumer: `openssl rand -base64 32`
+3. Restrict access: `chmod 600 config/databridge_auth.yaml`. Never commit it.
+4. Optionally override the file location in `config/.env`:
+   `LEAN_DATABRIDGE_AUTH_FILE=/absolute/path/to/databridge_auth.yaml`
+
+Each user entry defines a `name` (used in logs), a plaintext `key`, the granted
+`operations`, and the granted `projects`. Changes apply on the next request — no cache
+to clear.
+
+```yaml
+users:
+  - name: reporting-agent
+    key: "32+-random-chars"
+    operations: [read]
+    projects: [1, 5, 12]     # Leantime project IDs this key may access
+  - name: sync-service
+    key: "another-key"
+    operations: [read, write]
+    projects: all            # explicit sentinel: every project
+```
+
+### Operations
+
+| Operation | Used by |
+|-----------|-----------------------------------------|
+| `read`    | `GET\|POST /api/databridge/tickets`     |
+| `write`   | Reserved for future endpoints           |
+| `delete`  | Reserved for future endpoints           |
+
+### POC limitations
+
+- Keys are stored in plaintext (same trust level as the DB password in `config/.env`).
+- No key expiry or rotation yet.
+
+Failed authentication attempts are throttled: more than 20 failures per minute from the
+same IP returns `429 Too Many Requests`. Both limits are configurable in `config/.env`
+(a non-positive or non-numeric value falls back to the default):
+
+- `LEAN_DATABRIDGE_RATELIMIT_ATTEMPTS` — failed attempts allowed per window (default `20`)
+- `LEAN_DATABRIDGE_RATELIMIT_DECAY` — window length in seconds (default `60`)
 
 ## Endpoint
 
@@ -46,6 +91,13 @@ A ticket is returned if the user is either:
 - A **collaborator** on the ticket
 
 Milestones are excluded.
+
+### Project scoping
+
+Results only include tickets from projects granted to the **API user** (the `projects`
+key in the auth YAML). A grant listing a nonexistent project ID is legal and simply
+yields empty results, not an error. Status filtering is equally scoped: the status
+type (`NEW`/`INPROGRESS`/`DONE`) is resolved against granted projects only.
 
 ## Examples
 
@@ -158,6 +210,27 @@ curl -k -X POST https://leantime.example.com/api/databridge/tickets \
 
 ### Invalid API key (401)
 
+Returned for a missing, empty, or unknown key — and, fail-closed, when the auth YAML file
+is missing or malformed, or when the user's entry is invalid (e.g. a missing or invalid
+`projects` key; check the Leantime log). Also returned by Leantime core when the plugin
+is disabled.
+
 ```json
 {"error": "Invalid API Key"}
+```
+
+### Operation not granted (403)
+
+The key is valid but its user lacks the operation the endpoint requires.
+
+```json
+{"error": "Operation not permitted for this API key"}
+```
+
+### Too many failed attempts (429)
+
+More than 20 failed authentications per minute from the same IP.
+
+```json
+{"error": "Too many failed authentication attempts. Try again later."}
 ```

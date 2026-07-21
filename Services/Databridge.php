@@ -20,21 +20,23 @@ class Databridge
     ) {}
 
     /**
-     * Get tickets for a given username with optional date and status filtering.
+     * Get tickets for a given username with optional date and status filtering, scoped
+     * to the API user's granted projects.
      *
+     * @param  ?int[]  $allowedProjects  Granted project IDs; null = no restriction.
      * @return TicketData[]
      */
-    public function getTickets(string $username, int $start, int $limit, ?string $dateFrom, ?string $dateTo, ?string $status = null): array
+    public function getTickets(string $username, int $start, int $limit, ?string $dateFrom, ?string $dateTo, ?string $status, ?array $allowedProjects): array
     {
         $statusIds = null;
-        if ($status !== null) {
-            $statusIds = $this->resolveStatusIds($username, strtoupper($status));
+        if (null !== $status) {
+            $statusIds = $this->resolveStatusIds($username, strtoupper($status), $allowedProjects);
             if (empty($statusIds)) {
                 return [];
             }
         }
 
-        $values = $this->repository->getTicketsByUsername($username, $start, $limit, $dateFrom, $dateTo, $statusIds);
+        $values = $this->repository->getTicketsByUsername($username, $start, $limit, $dateFrom, $dateTo, $statusIds, $allowedProjects);
 
         return array_map(function ($value) {
             $projectStatuses = $this->ticketRepository->getStateLabels($value->projectId);
@@ -61,7 +63,7 @@ class Databridge
      */
     private function getCarbonFromDatabaseValue(mixed $value): ?CarbonImmutable
     {
-        return $value !== null && $value !== '0000-00-00 00:00:00'
+        return null !== $value && '0000-00-00 00:00:00' !== $value
             ? CarbonImmutable::createFromFormat(self::DATE_FORMAT, $value, 'UTC')
             : null;
     }
@@ -71,18 +73,19 @@ class Databridge
      */
     private function getMilestoneId(mixed $value): ?int
     {
-        return $value->milestoneid !== null && $value->milestoneid > 0 ? (int) $value->milestoneid : null;
+        return null !== $value->milestoneid && $value->milestoneid > 0 ? (int) $value->milestoneid : null;
     }
 
     /**
      * Resolve a statusType string (e.g. "DONE") to all matching status int keys
-     * across all projects the user has tickets in.
+     * across the granted projects the user has tickets in.
      *
+     * @param  ?int[]  $allowedProjects  Granted project IDs; null = no restriction.
      * @return int[]
      */
-    private function resolveStatusIds(string $username, string $statusType): array
+    private function resolveStatusIds(string $username, string $statusType, ?array $allowedProjects): array
     {
-        $projectIds = $this->repository->getProjectIdsForUser($username);
+        $projectIds = $this->repository->getProjectIdsForUser($username, $allowedProjects);
         $statusIds = [];
 
         foreach ($projectIds as $projectId) {
