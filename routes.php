@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Leantime\Plugins\Databridge\Controllers\Api;
+use Leantime\Plugins\Databridge\Middleware\ApiKeyAuth;
 
 Route::match(['get', 'post'], '/api/databridge/tickets', function () {
     $controller = app()->make(Api::class);
@@ -10,4 +11,4 @@ Route::match(['get', 'post'], '/api/databridge/tickets', function () {
     $input = array_merge(request()->query(), request()->json()->all());
 
     return $controller->tickets($input);
-});
+})->middleware(ApiKeyAuth::class.':read');

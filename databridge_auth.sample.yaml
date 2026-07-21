@@ -1,0 +1,16 @@
+# Databridge plugin API users.
+#
+# Copy this file to <leantime>/config/databridge_auth.yaml (next to .env) — NOT inside
+# the plugin folder, which deploys may overwrite. chmod 600, owned by the web user.
+# Never commit the real file. Optional path override in config/.env:
+#   LEAN_DATABRIDGE_AUTH_FILE=/absolute/path/to/databridge_auth.yaml
+#
+# Keys are PLAINTEXT (POC). Generate with: openssl rand -base64 32
+# Valid operations: read, write, delete (case-insensitive).
+users:
+  - name: reporting-agent
+    key: "REPLACE-with-32+-random-chars"
+    operations: [read]
+  - name: sync-service
+    key: "REPLACE-me-too"
+    operations: [read, write]

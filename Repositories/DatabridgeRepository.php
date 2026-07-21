@@ -66,17 +66,17 @@ class DatabridgeRepository
             $query->leftJoin('zp_user as collab_user', function ($join) use ($username) {
                 $join->where('collab_user.username', '=', $username);
             })
-            ->leftJoin('zp_entity_relationship as er', function ($join) use ($entityAColumn) {
-                $join->on('er.'.$entityAColumn, '=', 'ticket.id')
-                    ->where('er.entityAType', '=', 'Ticket')
-                    ->where('er.entityBType', '=', 'User')
-                    ->where('er.relationship', '=', 'Collaborator')
-                    ->on('er.entityB', '=', 'collab_user.id');
-            })
-            ->where(function ($q) use ($username) {
-                $q->where('editor.username', '=', $username)
-                    ->orWhereNotNull('er.entityB');
-            });
+                ->leftJoin('zp_entity_relationship as er', function ($join) use ($entityAColumn) {
+                    $join->on('er.'.$entityAColumn, '=', 'ticket.id')
+                        ->where('er.entityAType', '=', 'Ticket')
+                        ->where('er.entityBType', '=', 'User')
+                        ->where('er.relationship', '=', 'Collaborator')
+                        ->on('er.entityB', '=', 'collab_user.id');
+                })
+                ->where(function ($q) use ($username) {
+                    $q->where('editor.username', '=', $username)
+                        ->orWhereNotNull('er.entityB');
+                });
         } else {
             $query->where('editor.username', '=', $username);
         }

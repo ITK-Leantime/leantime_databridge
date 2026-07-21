@@ -17,9 +17,41 @@ php bin/leantime plugin:enable Databridge
 
 ## Authentication
 
-Requires a Leantime API key passed via the `x-api-key` header.
+The plugin uses its **own** API keys, defined in a YAML file — core Leantime API keys
+(`lt_...`) are **not** accepted on these endpoints. The key is passed via the `x-api-key`
+header.
 
-Create an API key in **Settings > API** in the Leantime UI.
+### Setup
+
+1. Copy `databridge_auth.sample.yaml` (in this plugin) to `<leantime>/config/databridge_auth.yaml`
+   — next to Leantime's `.env`, **not** inside the plugin folder (deploys may overwrite it).
+2. Generate a key per consumer: `openssl rand -base64 32`
+3. Restrict access: `chmod 600 config/databridge_auth.yaml`. Never commit it.
+4. Optionally override the file location in `config/.env`:
+   `LEAN_DATABRIDGE_AUTH_FILE=/absolute/path/to/databridge_auth.yaml`
+
+Each user entry defines a `name` (used in logs), a plaintext `key`, and the granted
+`operations`. Changes apply on the next request — no cache to clear.
+
+```yaml
+users:
+  - name: reporting-agent
+    key: "32+-random-chars"
+    operations: [read]
+```
+
+### Operations
+
+| Operation | Used by |
+|-----------|-----------------------------------------|
+| `read`    | `GET\|POST /api/databridge/tickets`     |
+| `write`   | Reserved for future endpoints           |
+| `delete`  | Reserved for future endpoints           |
+
+### POC limitations
+
+- Keys are stored in plaintext (same trust level as the DB password in `config/.env`).
+- No brute-force lockout and no key expiry yet.
 
 ## Endpoint
 
@@ -158,6 +190,18 @@ curl -k -X POST https://leantime.example.com/api/databridge/tickets \
 
 ### Invalid API key (401)
 
+Returned for a missing, empty, or unknown key — and, fail-closed, when the auth YAML file
+is missing or malformed (check the Leantime log). Also returned by Leantime core when the
+plugin is disabled.
+
 ```json
 {"error": "Invalid API Key"}
+```
+
+### Operation not granted (403)
+
+The key is valid but its user lacks the operation the endpoint requires.
+
+```json
+{"error": "Operation not permitted for this API key"}
 ```
