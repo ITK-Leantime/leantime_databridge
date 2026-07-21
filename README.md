@@ -60,7 +60,11 @@ users:
 - No key expiry or rotation yet.
 
 Failed authentication attempts are throttled: more than 20 failures per minute from the
-same IP returns `429 Too Many Requests`.
+same IP returns `429 Too Many Requests`. Both limits are configurable in `config/.env`
+(a non-positive or non-numeric value falls back to the default):
+
+- `LEAN_DATABRIDGE_RATELIMIT_ATTEMPTS` — failed attempts allowed per window (default `20`)
+- `LEAN_DATABRIDGE_RATELIMIT_DECAY` — window length in seconds (default `60`)
 
 ## Endpoint
 

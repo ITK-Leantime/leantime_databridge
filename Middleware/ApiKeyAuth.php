@@ -28,12 +28,13 @@ class ApiKeyAuth
 
     /**
      * Core's failed-auth limiter sits behind the publicActions early return, so whitelisted
-     * routes never reach it — this middleware must throttle key guessing itself. Mirrors
-     * core's budget: 20 failed attempts per IP per minute.
+     * routes never reach it — this middleware must throttle key guessing itself. Defaults
+     * mirror core's budget (20 failed attempts per IP per minute) and are overridable via
+     * the LEAN_DATABRIDGE_RATELIMIT_* env vars (see maxFailedAttempts()/decaySeconds()).
      */
-    private const MAX_FAILED_ATTEMPTS = 20;
+    private const DEFAULT_MAX_FAILED_ATTEMPTS = 20;
 
-    private const FAILED_ATTEMPT_DECAY_SECONDS = 60;
+    private const DEFAULT_FAILED_ATTEMPT_DECAY_SECONDS = 60;
 
     public function __construct(
         private readonly ApiUsers $apiUsers,
@@ -52,7 +53,7 @@ class ApiKeyAuth
 
         $throttleKey = 'databridge-auth-failures:'.$request->getClientIp();
 
-        if ($this->limiter->tooManyAttempts($throttleKey, self::MAX_FAILED_ATTEMPTS)) {
+        if ($this->limiter->tooManyAttempts($throttleKey, $this->maxFailedAttempts())) {
             Log::warning('Databridge auth: too many failed authentication attempts', ['ip' => $request->getClientIp()]);
 
             return new JsonResponse(['error' => 'Too many failed authentication attempts. Try again later.'], Response::HTTP_TOO_MANY_REQUESTS);
@@ -62,7 +63,7 @@ class ApiKeyAuth
             $user = $this->apiUsers->authenticate($request->headers->get(self::HEADER));
             $this->apiUsers->authorize($user, $requiredOperation);
         } catch (InvalidApiKeyException) {
-            $this->limiter->hit($throttleKey, self::FAILED_ATTEMPT_DECAY_SECONDS);
+            $this->limiter->hit($throttleKey, $this->decaySeconds());
             Log::warning('Databridge auth: rejected request with missing or unknown API key', ['ip' => $request->getClientIp()]);
 
             return new JsonResponse(['error' => 'Invalid API Key'], Response::HTTP_UNAUTHORIZED);
@@ -76,5 +77,40 @@ class ApiKeyAuth
         $request->attributes->set(self::REQUEST_ATTRIBUTE, $user);
 
         return $next($request);
+    }
+
+    /**
+     * Maximum failed attempts per IP before returning 429, from
+     * LEAN_DATABRIDGE_RATELIMIT_ATTEMPTS (default 20).
+     */
+    private function maxFailedAttempts(): int
+    {
+        return $this->positiveIntEnv('LEAN_DATABRIDGE_RATELIMIT_ATTEMPTS', self::DEFAULT_MAX_FAILED_ATTEMPTS);
+    }
+
+    /**
+     * Window in seconds over which failed attempts are counted, from
+     * LEAN_DATABRIDGE_RATELIMIT_DECAY (default 60).
+     */
+    private function decaySeconds(): int
+    {
+        return $this->positiveIntEnv('LEAN_DATABRIDGE_RATELIMIT_DECAY', self::DEFAULT_FAILED_ATTEMPT_DECAY_SECONDS);
+    }
+
+    /**
+     * Read a positive integer from the environment, falling back to $default when the value
+     * is unset or not a positive integer. env() (not config()) matches the plugin's other
+     * settings; a misconfigured value must never disable or invert throttling — e.g. a 0
+     * would make every request exceed the limit.
+     */
+    private function positiveIntEnv(string $key, int $default): int
+    {
+        $value = env($key);
+
+        if (is_numeric($value) && (int) $value > 0) {
+            return (int) $value;
+        }
+
+        return $default;
     }
 }
