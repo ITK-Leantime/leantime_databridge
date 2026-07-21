@@ -7,10 +7,15 @@
 #
 # Keys are PLAINTEXT (POC). Generate with: openssl rand -base64 32
 # Valid operations: read, write, delete (case-insensitive).
+# "projects" is REQUIRED: a list of Leantime project IDs (zp_projects.id) the key may
+# access, or the sentinel `all` (case-insensitive) for every project. A missing, empty,
+# or invalid "projects" key disables the whole entry (logged; the key gets 401).
 users:
   - name: reporting-agent
     key: "REPLACE-with-32+-random-chars"
     operations: [read]
+    projects: [1, 5, 12]
   - name: sync-service
     key: "REPLACE-me-too"
     operations: [read, write]
+    projects: all

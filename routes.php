@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Leantime\Plugins\Databridge\Controllers\Api;
 use Leantime\Plugins\Databridge\Middleware\ApiKeyAuth;
+use Leantime\Plugins\Databridge\Model\ApiUser;
 
 /*
  * Core auth is bypassed for the whole /api/databridge prefix (see register.php), so a route
@@ -14,8 +15,16 @@ Route::middleware([ApiKeyAuth::class.':read'])->group(function (): void {
         $controller = app()->make(Api::class);
         $controller->init(app()->make(\Leantime\Plugins\Databridge\Services\Databridge::class));
 
+        $apiUser = request()->attributes->get(ApiKeyAuth::REQUEST_ATTRIBUTE);
+
+        // Fail loud if a route was wired without the ApiKeyAuth middleware: without an
+        // authenticated ApiUser there is no project grant, and serving would be fail-open.
+        if (! $apiUser instanceof ApiUser) {
+            throw new \RuntimeException('Databridge route reached without an authenticated ApiUser — ApiKeyAuth middleware missing on the route.');
+        }
+
         $input = array_merge(request()->query(), request()->json()->all());
 
-        return $controller->tickets($input);
+        return $controller->tickets($input, $apiUser);
     });
 });

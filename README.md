@@ -30,14 +30,20 @@ header.
 4. Optionally override the file location in `config/.env`:
    `LEAN_DATABRIDGE_AUTH_FILE=/absolute/path/to/databridge_auth.yaml`
 
-Each user entry defines a `name` (used in logs), a plaintext `key`, and the granted
-`operations`. Changes apply on the next request — no cache to clear.
+Each user entry defines a `name` (used in logs), a plaintext `key`, the granted
+`operations`, and the granted `projects`. Changes apply on the next request — no cache
+to clear.
 
 ```yaml
 users:
   - name: reporting-agent
     key: "32+-random-chars"
     operations: [read]
+    projects: [1, 5, 12]     # Leantime project IDs this key may access
+  - name: sync-service
+    key: "another-key"
+    operations: [read, write]
+    projects: all            # explicit sentinel: every project
 ```
 
 ### Operations
@@ -81,6 +87,13 @@ A ticket is returned if the user is either:
 - A **collaborator** on the ticket
 
 Milestones are excluded.
+
+### Project scoping
+
+Results only include tickets from projects granted to the **API user** (the `projects`
+key in the auth YAML). A grant listing a nonexistent project ID is legal and simply
+yields empty results, not an error. Status filtering is equally scoped: the status
+type (`NEW`/`INPROGRESS`/`DONE`) is resolved against granted projects only.
 
 ## Examples
 
@@ -194,8 +207,9 @@ curl -k -X POST https://leantime.example.com/api/databridge/tickets \
 ### Invalid API key (401)
 
 Returned for a missing, empty, or unknown key — and, fail-closed, when the auth YAML file
-is missing or malformed (check the Leantime log). Also returned by Leantime core when the
-plugin is disabled.
+is missing or malformed, or when the user's entry is invalid (e.g. a missing or invalid
+`projects` key; check the Leantime log). Also returned by Leantime core when the plugin
+is disabled.
 
 ```json
 {"error": "Invalid API Key"}

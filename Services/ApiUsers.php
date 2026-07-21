@@ -178,6 +178,56 @@ class ApiUsers
             }
         }
 
-        return ['key' => $key, 'user' => new ApiUser($name, $operations)];
+        $projectsValue = $userData['projects'] ?? null;
+
+        if (is_string($projectsValue) && 'all' === strtolower(trim($projectsValue))) {
+            // Explicit unrestricted grant. YAML yields a plain string for all/All/"ALL".
+            $projects = null;
+        } elseif (is_array($projectsValue) && [] !== $projectsValue) {
+            $projects = [];
+            foreach ($projectsValue as $value) {
+                $projectId = $this->parseProjectId($value);
+
+                if (null === $projectId) {
+                    Log::error('Databridge auth: skipping user with invalid "projects" element — use positive project IDs, e.g. projects: [1, 5], or projects: all', [
+                        'name' => $name,
+                        'value' => is_scalar($value) ? (string) $value : gettype($value),
+                    ]);
+
+                    return null;
+                }
+
+                if (! in_array($projectId, $projects, true)) {
+                    $projects[] = $projectId;
+                }
+            }
+        } else {
+            Log::error('Databridge auth: skipping user without a valid "projects" key — required; use a list of project IDs, e.g. projects: [1, 5], or projects: all', ['name' => $name]);
+
+            return null;
+        }
+
+        return ['key' => $key, 'user' => new ApiUser($name, $operations, $projects)];
+    }
+
+    /**
+     * Parse one YAML "projects" element to a positive project ID.
+     *
+     * Accepts positive ints and digit-strings (YAML authors may quote IDs); rejects
+     * zero, negatives, floats, booleans, and everything else.
+     */
+    private function parseProjectId(mixed $value): ?int
+    {
+        if (is_int($value)) {
+            return $value > 0 ? $value : null;
+        }
+
+        if (is_string($value) && ctype_digit(trim($value))) {
+            $projectId = (int) trim($value);
+
+            return $projectId > 0 ? $projectId : null;
+        }
+
+        return null;
     }
 }
