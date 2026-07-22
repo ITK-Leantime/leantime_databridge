@@ -54,6 +54,59 @@ class DatabridgeRepository
     }
 
     /**
+     * Resolve a username (email) to the zp_user id, or null when unknown.
+     */
+    public function findUserIdByUsername(string $username): ?int
+    {
+        $id = $this->query()
+            ->from('zp_user')
+            ->where('username', '=', $username)
+            ->value('id');
+
+        return null !== $id ? (int) $id : null;
+    }
+
+    /**
+     * Whether a project with the given ID exists.
+     */
+    public function projectExists(int $projectId): bool
+    {
+        return $this->query()
+            ->from('zp_projects')
+            ->where('id', '=', $projectId)
+            ->exists();
+    }
+
+    /**
+     * Insert a ticket row and return the new ticket ID.
+     *
+     * Unset optional columns must be passed as null (never ''): the zp_tickets float
+     * and datetime columns are nullable, and '' would be rejected under strict SQL mode.
+     *
+     * @param  array<string, mixed>  $values  Column => value map.
+     */
+    public function insertTicket(array $values): int
+    {
+        return (int) $this->query()
+            ->from('zp_tickets')
+            ->insertGetId($values);
+    }
+
+    /**
+     * Fetch a single ticket row by ID in the same column shape as getTicketsByUsername(),
+     * so both can share one row-to-TicketData mapping.
+     */
+    public function findTicketRowById(int $ticketId): ?object
+    {
+        return $this->query()
+            ->from('zp_tickets', 'ticket')
+            ->leftJoin('zp_user as editor', 'editor.id', '=', 'ticket.editorId')
+            ->selectRaw('ticket.id, ticket.headline, ticket.projectId, ticket.status, ticket.planHours, ticket.hourRemaining, ticket.tags, ticket.dateToFinish, ticket.editTo, ticket.milestoneid, ticket.modified, editor.username')
+            ->where('ticket.id', '=', $ticketId)
+            ->first();
+    }
+
+    /**
      * Build the base query for tickets associated with a username, restricted to the
      * allowed projects.
      *
