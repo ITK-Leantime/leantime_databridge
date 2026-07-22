@@ -50,7 +50,7 @@ users:
 
 | Operation | Used by |
 |-----------|-----------------------------------------|
-| `read`    | `GET\|POST /api/databridge/tickets`     |
+| `read`    | `GET /api/databridge/tickets`           |
 | `write`   | Reserved for future endpoints           |
 | `delete`  | Reserved for future endpoints           |
 
@@ -69,8 +69,7 @@ same IP returns `429 Too Many Requests`. Both limits are configurable in `config
 ## Endpoint
 
 ```
-POST /api/databridge/tickets
-GET  /api/databridge/tickets
+GET /api/databridge/tickets
 ```
 
 ### Parameters
@@ -101,16 +100,14 @@ type (`NEW`/`INPROGRESS`/`DONE`) is resolved against granted projects only.
 
 ## Examples
 
-### POST with JSON body (recommended)
+### Basic request
 
 ```bash
-curl -k -X POST https://leantime.example.com/api/databridge/tickets \
-  -H "x-api-key: YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"username": "user@example.com"}'
+curl -k "https://leantime.example.com/api/databridge/tickets?username=user@example.com" \
+  -H "x-api-key: YOUR_API_KEY"
 ```
 
-### GET with query parameters
+### With a result limit
 
 ```bash
 curl -k "https://leantime.example.com/api/databridge/tickets?username=user@example.com&limit=50" \
@@ -120,34 +117,22 @@ curl -k "https://leantime.example.com/api/databridge/tickets?username=user@examp
 ### With date filtering
 
 ```bash
-curl -k -X POST https://leantime.example.com/api/databridge/tickets \
-  -H "x-api-key: YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"username": "user@example.com", "dateFrom": "2026-01-01", "dateTo": "2026-12-31"}'
+curl -k "https://leantime.example.com/api/databridge/tickets?username=user@example.com&dateFrom=2026-01-01&dateTo=2026-12-31" \
+  -H "x-api-key: YOUR_API_KEY"
 ```
 
 ### With status filtering
 
 ```bash
-curl -k -X POST https://leantime.example.com/api/databridge/tickets \
-  -H "x-api-key: YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"username": "user@example.com", "status": "inprogress"}'
+curl -k "https://leantime.example.com/api/databridge/tickets?username=user@example.com&status=inprogress" \
+  -H "x-api-key: YOUR_API_KEY"
 ```
 
 ### Combined filters
 
 ```bash
-curl -k -X POST https://leantime.example.com/api/databridge/tickets \
-  -H "x-api-key: YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "user@example.com",
-    "status": "inprogress",
-    "dateFrom": "2026-01-01",
-    "dateTo": "2026-12-31",
-    "limit": 10
-  }'
+curl -k "https://leantime.example.com/api/databridge/tickets?username=user@example.com&status=inprogress&dateFrom=2026-01-01&dateTo=2026-12-31&limit=10" \
+  -H "x-api-key: YOUR_API_KEY"
 ```
 
 ### Pagination
@@ -156,16 +141,12 @@ Use `start` (minimum ticket ID) and `limit` to paginate through results:
 
 ```bash
 # First page
-curl -k -X POST https://leantime.example.com/api/databridge/tickets \
-  -H "x-api-key: YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"username": "user@example.com", "start": 0, "limit": 50}'
+curl -k "https://leantime.example.com/api/databridge/tickets?username=user@example.com&start=0&limit=50" \
+  -H "x-api-key: YOUR_API_KEY"
 
 # Next page (use the last ticket ID + 1 from previous response)
-curl -k -X POST https://leantime.example.com/api/databridge/tickets \
-  -H "x-api-key: YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"username": "user@example.com", "start": 1051, "limit": 50}'
+curl -k "https://leantime.example.com/api/databridge/tickets?username=user@example.com&start=1051&limit=50" \
+  -H "x-api-key: YOUR_API_KEY"
 ```
 
 ## Response format

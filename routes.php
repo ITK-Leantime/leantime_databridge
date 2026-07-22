@@ -11,7 +11,7 @@ use Leantime\Plugins\Databridge\Model\ApiUser;
  * matching the operation they require; add a new group for write/delete endpoints.
  */
 Route::middleware([ApiKeyAuth::class.':read'])->group(function (): void {
-    Route::match(['get', 'post'], '/api/databridge/tickets', function () {
+    Route::get('/api/databridge/tickets', function () {
         $controller = app()->make(Api::class);
         $controller->init(app()->make(\Leantime\Plugins\Databridge\Services\Databridge::class));
 
@@ -23,7 +23,7 @@ Route::middleware([ApiKeyAuth::class.':read'])->group(function (): void {
             throw new \RuntimeException('Databridge route reached without an authenticated ApiUser — ApiKeyAuth middleware missing on the route.');
         }
 
-        $input = array_merge(request()->query(), request()->json()->all());
+        $input = request()->query();
 
         return $controller->tickets($input, $apiUser);
     });
