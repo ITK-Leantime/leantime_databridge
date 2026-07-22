@@ -121,11 +121,11 @@ class Databridge
     }
 
     /**
-     * Whether a project with the given ID exists.
+     * Fetch a project's id and state, or null when it does not exist.
      */
-    public function projectExists(int $projectId): bool
+    public function findProject(int $projectId): ?object
     {
-        return $this->repository->projectExists($projectId);
+        return $this->repository->findProjectById($projectId);
     }
 
     /**

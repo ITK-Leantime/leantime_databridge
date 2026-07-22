@@ -218,6 +218,10 @@ Creates a ticket in a granted project, assigned to the given username. Requires 
   "accessible to everyone" projects; client users for client-scoped projects; directly
   assigned users otherwise). Otherwise `400` — a ticket assigned to someone who cannot
   see its project would be invisible to them.
+- **No tickets in closed projects** — creating into a closed project ("Closed" in project
+  settings; the projects board calls the same state "archive") returns `400`; Leantime
+  hides closed projects from every listing, so the ticket would be invisible. Reading
+  tickets from closed projects via `GET` still works (reporting/history).
 - **No notifications, no events** — unlike in-app creation, this endpoint fires no Leantime
   events and sends no notification emails. This is by design: API-key requests have no
   session user to attribute the activity to.
@@ -295,6 +299,7 @@ Input is invalid; the `error` message states the problem. Examples:
 - `The "projectId" field is required and must be a positive integer.`
 - `The "name" field is required.` / `The "name" field must not exceed 255 characters.`
 - `Unknown "projectId".` / `Unknown "username".`
+- `The given project is closed.`
 - `The "username" user does not have access to the given project.`
 - `The "dueDate" field must be a valid date in "Y-m-d" or "Y-m-d H:i:s" format (UTC).`
 - `The "status" field must be one of NEW, INPROGRESS, DONE.`

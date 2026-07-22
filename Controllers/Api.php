@@ -111,8 +111,16 @@ class Api extends Controller
             return new JsonResponse(['error' => $e->getMessage()], 400);
         }
 
-        if (! $this->databridgeService->projectExists($projectId)) {
+        $project = $this->databridgeService->findProject($projectId);
+        if (null === $project) {
             return new JsonResponse(['error' => 'Unknown "projectId".'], 400);
+        }
+
+        // State -1 is "Closed" in the project-settings UI (the projects board calls it
+        // "archive" — same value). Core hides it from every listing, so a ticket created
+        // there would be invisible.
+        if (-1 === (int) $project->state) {
+            return new JsonResponse(['error' => 'The given project is closed.'], 400);
         }
 
         $assigneeId = $this->databridgeService->findUserIdByUsername($username);

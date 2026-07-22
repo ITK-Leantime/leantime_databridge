@@ -66,14 +66,18 @@ class DatabridgeRepository
     }
 
     /**
-     * Whether a project with the given ID exists.
+     * Fetch a project's id and state, or null when it does not exist.
+     *
+     * Returns the row rather than the bare state because state NULL is a legal
+     * value (= open) and would be indistinguishable from "no such project".
      */
-    public function projectExists(int $projectId): bool
+    public function findProjectById(int $projectId): ?object
     {
         return $this->query()
             ->from('zp_projects')
+            ->select('id', 'state')
             ->where('id', '=', $projectId)
-            ->exists();
+            ->first();
     }
 
     /**
