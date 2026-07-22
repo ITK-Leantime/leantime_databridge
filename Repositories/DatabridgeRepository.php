@@ -3,7 +3,6 @@
 namespace Leantime\Plugins\Databridge\Repositories;
 
 use Illuminate\Database\Query\Builder;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Repository for Databridge plugin data access.
@@ -108,57 +107,29 @@ class DatabridgeRepository
 
     /**
      * Build the base query for tickets associated with a username, restricted to the
-     * allowed projects.
+     * allowed projects. A ticket matches when the user is the assigned editor or a
+     * Collaborator via zp_entity_relationship. The relationship join can multiply rows
+     * for tickets with several collaborators — callers deduplicate with DISTINCT.
      *
      * @param  ?int[]  $allowedProjects  Granted project IDs; null = no restriction.
      */
     private function buildUserTicketsQuery(string $username, ?array $allowedProjects): Builder
     {
-        $query = $this->query()
+        return $this->query()
             ->from('zp_tickets', 'ticket')
             ->leftJoin('zp_user as editor', 'editor.id', '=', 'ticket.editorId')
-            ->where('ticket.type', '<>', 'milestone')
-            ->when(null !== $allowedProjects, fn ($query) => $query->whereIn('ticket.projectId', $allowedProjects));
-
-        $entityAColumn = $this->getEntityAColumnName();
-
-        if (null !== $entityAColumn) {
-            $query->leftJoin('zp_user as collab_user', function ($join) use ($username) {
-                $join->where('collab_user.username', '=', $username);
+            ->leftJoin('zp_entity_relationship as er', function ($join) {
+                $join->on('er.entityA', '=', 'ticket.id')
+                    ->where('er.entityAType', '=', 'Ticket')
+                    ->where('er.entityBType', '=', 'User')
+                    ->where('er.relationship', '=', 'Collaborator');
             })
-                ->leftJoin('zp_entity_relationship as er', function ($join) use ($entityAColumn) {
-                    $join->on('er.'.$entityAColumn, '=', 'ticket.id')
-                        ->where('er.entityAType', '=', 'Ticket')
-                        ->where('er.entityBType', '=', 'User')
-                        ->where('er.relationship', '=', 'Collaborator')
-                        ->on('er.entityB', '=', 'collab_user.id');
-                })
-                ->where(function ($q) use ($username) {
-                    $q->where('editor.username', '=', $username)
-                        ->orWhereNotNull('er.entityB');
-                });
-        } else {
-            $query->where('editor.username', '=', $username);
-        }
-
-        return $query;
-    }
-
-    /**
-     * Detect the entityA column name in zp_entity_relationship.
-     *
-     * Returns 'entityA' (3.7.x), 'enitityA' (3.5.12 typo), or null if neither exists.
-     */
-    private function getEntityAColumnName(): ?string
-    {
-        if (Schema::hasColumn('zp_entity_relationship', 'entityA')) {
-            return 'entityA';
-        }
-
-        if (Schema::hasColumn('zp_entity_relationship', 'enitityA')) {
-            return 'enitityA';
-        }
-
-        return null;
+            ->leftJoin('zp_user as collab_user', 'collab_user.id', '=', 'er.entityB')
+            ->where('ticket.type', '<>', 'milestone')
+            ->when(null !== $allowedProjects, fn ($query) => $query->whereIn('ticket.projectId', $allowedProjects))
+            ->where(function ($q) use ($username) {
+                $q->where('editor.username', '=', $username)
+                    ->orWhere('collab_user.username', '=', $username);
+            });
     }
 }
