@@ -4,6 +4,7 @@ namespace Leantime\Plugins\Databridge\Services;
 
 use Carbon\CarbonImmutable;
 use Carbon\Exceptions\InvalidFormatException;
+use Illuminate\Support\Facades\Log;
 use Leantime\Domain\Tickets\Repositories\Tickets as TicketRepository;
 use Leantime\Plugins\Databridge\Model\ApiUser;
 use Leantime\Plugins\Databridge\Model\CreateTicketData;
@@ -222,6 +223,15 @@ class Databridge
         if (null === $row) {
             throw new \RuntimeException(sprintf('Databridge: ticket row missing directly after insert (id %d).', $ticketId));
         }
+
+        // Audit trail: no core events fire on this path, and the DB row's userId points at
+        // the assignee — without this line there is no record of which API key created what.
+        Log::info('Databridge: ticket created via API.', [
+            'ticketId' => $ticketId,
+            'projectId' => $data->projectId,
+            'assigneeId' => $data->assigneeId,
+            'apiUser' => $apiUser->name,
+        ]);
 
         return $this->mapRowToTicketData($row);
     }
