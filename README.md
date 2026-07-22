@@ -200,7 +200,7 @@ Creates a ticket in a granted project, assigned to the given username. Requires 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `projectId` | int | Yes | | Target project; must be covered by the key's `projects` grant |
-| `username` | string | Yes | | Assignee email; recorded as both the assignee and the creator |
+| `username` | string | Yes | | Assignee email; must have access to the target project; recorded as both the assignee and the creator |
 | `name` | string | Yes | | Ticket headline (max 255 characters) |
 | `description` | string | No | `""` | Ticket description (max 65535 bytes) |
 | `dueDate` | string | No | none | `Y-m-d` or `Y-m-d H:i:s`, interpreted as **UTC**; a bare date gets a `00:00:00` time |
@@ -213,6 +213,11 @@ Creates a ticket in a granted project, assigned to the given username. Requires 
 - **Project grant** — `403` if `projectId` is not covered by the key's `projects` grant.
   The grant is checked before existence, so an ungranted key cannot probe which project
   IDs exist.
+- **Assignee must have project access** — the `username` user must be able to access the
+  target project per Leantime's access model (admins/owners always; everyone for
+  "accessible to everyone" projects; client users for client-scoped projects; directly
+  assigned users otherwise). Otherwise `400` — a ticket assigned to someone who cannot
+  see its project would be invisible to them.
 - **No notifications, no events** — unlike in-app creation, this endpoint fires no Leantime
   events and sends no notification emails. This is by design: API-key requests have no
   session user to attribute the activity to.
@@ -290,6 +295,7 @@ Input is invalid; the `error` message states the problem. Examples:
 - `The "projectId" field is required and must be a positive integer.`
 - `The "name" field is required.` / `The "name" field must not exceed 255 characters.`
 - `Unknown "projectId".` / `Unknown "username".`
+- `The "username" user does not have access to the given project.`
 - `The "dueDate" field must be a valid date in "Y-m-d" or "Y-m-d H:i:s" format (UTC).`
 - `The "status" field must be one of NEW, INPROGRESS, DONE.`
 - `The "tags" field must be an array of non-empty strings without commas.`

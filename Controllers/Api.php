@@ -120,6 +120,12 @@ class Api extends Controller
             return new JsonResponse(['error' => 'Unknown "username".'], 400);
         }
 
+        // A ticket assigned to someone who cannot access its project would be invisible
+        // to them; reject it like the core UI does (assignee dropdown = project users).
+        if (! $this->databridgeService->isUserAssignedToProject($assigneeId, $projectId)) {
+            return new JsonResponse(['error' => 'The "username" user does not have access to the given project.'], 400);
+        }
+
         $statusId = $this->databridgeService->resolveStatusIdForCreate($projectId, $statusType);
         if (null === $statusId) {
             return new JsonResponse(['error' => sprintf('No status of type "%s" is configured for this project.', $statusType)], 400);

@@ -5,6 +5,7 @@ namespace Leantime\Plugins\Databridge\Services;
 use Carbon\CarbonImmutable;
 use Carbon\Exceptions\InvalidFormatException;
 use Illuminate\Support\Facades\Log;
+use Leantime\Domain\Projects\Repositories\Projects as ProjectRepository;
 use Leantime\Domain\Tickets\Repositories\Tickets as TicketRepository;
 use Leantime\Plugins\Databridge\Model\ApiUser;
 use Leantime\Plugins\Databridge\Model\CreateTicketData;
@@ -29,6 +30,7 @@ class Databridge
     public function __construct(
         private readonly DatabridgeRepository $repository,
         private readonly TicketRepository $ticketRepository,
+        private readonly ProjectRepository $projectRepository,
     ) {}
 
     /**
@@ -132,6 +134,17 @@ class Databridge
     public function findUserIdByUsername(string $username): ?int
     {
         return $this->repository->findUserIdByUsername($username);
+    }
+
+    /**
+     * Whether the user may access the given project, per core's access model:
+     * admins/owners always, everyone for "all" projects, client users for client
+     * projects, and directly assigned users otherwise. Takes explicit ids — no
+     * session dependency, safe in the API-key context.
+     */
+    public function isUserAssignedToProject(int $userId, int $projectId): bool
+    {
+        return $this->projectRepository->isUserAssignedToProject($userId, $projectId);
     }
 
     /**
