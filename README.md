@@ -85,7 +85,7 @@ The `401` / `403` (operation) / `429` responses in [Error responses](#error-resp
 | `dateFrom` | string | No       |         | ISO date (`Y-m-d`), filters `dateToFinish >=`     |
 | `dateTo`   | string | No       |         | ISO date (`Y-m-d`), filters `dateToFinish <=`     |
 | `status`   | string | No       |         | Status type: `NEW`, `INPROGRESS`, `DONE` (case-insensitive) |
-| `start`    | int    | No       | 0       | Pagination cursor: minimum ticket ID (`id >=`), not a row offset |
+| `sinceId`  | int    | No       | 0       | Pagination cursor: minimum ticket ID (`id >=`), not a row offset |
 | `limit`    | int    | No       | 100     | Maximum number of results                         |
 
 ### Ticket matching
@@ -142,16 +142,16 @@ curl -k "https://leantime.example.com/api/databridge/tickets?username=user@examp
 
 #### Pagination
 
-`start` is a keyset cursor (minimum ticket ID), **not** a row offset. To fetch the next
+`sinceId` is a keyset cursor (minimum ticket ID), **not** a row offset. To fetch the next
 page, pass the last returned ticket ID + 1:
 
 ```bash
 # First page
-curl -k "https://leantime.example.com/api/databridge/tickets?username=user@example.com&start=0&limit=50" \
+curl -k "https://leantime.example.com/api/databridge/tickets?username=user@example.com&sinceId=0&limit=50" \
   -H "x-api-key: YOUR_API_KEY"
 
 # Next page (use the last ticket ID + 1 from the previous response)
-curl -k "https://leantime.example.com/api/databridge/tickets?username=user@example.com&start=1051&limit=50" \
+curl -k "https://leantime.example.com/api/databridge/tickets?username=user@example.com&sinceId=1051&limit=50" \
   -H "x-api-key: YOUR_API_KEY"
 ```
 
@@ -164,7 +164,7 @@ curl -k "https://leantime.example.com/api/databridge/tickets?username=user@examp
     "dateFrom": "2026-01-01",
     "dateTo": "2026-12-31",
     "status": null,
-    "start": 0,
+    "sinceId": 0,
     "limit": 100
   },
   "resultsCount": 3,

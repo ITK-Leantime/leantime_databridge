@@ -39,11 +39,11 @@ class DatabridgeRepository
      * @param  ?int[]  $statusIds  Optional list of status ints to filter on.
      * @param  ?int[]  $allowedProjects  Granted project IDs; null = no restriction.
      */
-    public function getTicketsByUsername(string $username, int $start, int $limit, ?string $dateFrom, ?string $dateTo, ?array $statusIds, ?array $allowedProjects): array
+    public function getTicketsByUsername(string $username, int $sinceId, int $limit, ?string $dateFrom, ?string $dateTo, ?array $statusIds, ?array $allowedProjects): array
     {
         return $this->buildUserTicketsQuery($username, $allowedProjects)
             ->selectRaw('DISTINCT ticket.id, ticket.headline, ticket.projectId, ticket.status, ticket.planHours, ticket.hourRemaining, ticket.tags, ticket.dateToFinish, ticket.editTo, ticket.milestoneid, ticket.modified, editor.username')
-            ->where('ticket.id', '>=', $start)
+            ->where('ticket.id', '>=', $sinceId)
             ->when(null !== $dateFrom, fn ($query) => $query->where('ticket.dateToFinish', '>=', $dateFrom))
             ->when(null !== $dateTo, fn ($query) => $query->where('ticket.dateToFinish', '<=', $dateTo))
             ->when(null !== $statusIds, fn ($query) => $query->whereIn('ticket.status', $statusIds))

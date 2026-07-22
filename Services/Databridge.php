@@ -40,7 +40,7 @@ class Databridge
      * @param  ?int[]  $allowedProjects  Granted project IDs; null = no restriction.
      * @return TicketData[]
      */
-    public function getTickets(string $username, int $start, int $limit, ?string $dateFrom, ?string $dateTo, ?string $status, ?array $allowedProjects): array
+    public function getTickets(string $username, int $sinceId, int $limit, ?string $dateFrom, ?string $dateTo, ?string $status, ?array $allowedProjects): array
     {
         $statusIds = null;
         if (null !== $status) {
@@ -50,7 +50,7 @@ class Databridge
             }
         }
 
-        $values = $this->repository->getTicketsByUsername($username, $start, $limit, $dateFrom, $dateTo, $statusIds, $allowedProjects);
+        $values = $this->repository->getTicketsByUsername($username, $sinceId, $limit, $dateFrom, $dateTo, $statusIds, $allowedProjects);
 
         return array_map(fn ($value) => $this->mapRowToTicketData($value), $values);
     }

@@ -54,14 +54,14 @@ class Api extends Controller
             );
         }
 
-        $start = (int) ($input['start'] ?? 0);
+        $sinceId = (int) ($input['sinceId'] ?? 0);
         $limit = (int) ($input['limit'] ?? 100);
         $dateFrom = $input['dateFrom'] ?? null;
         $dateTo = $input['dateTo'] ?? null;
         $status = isset($input['status']) ? trim($input['status']) : null;
         $status = '' !== $status ? $status : null;
 
-        $results = $this->databridgeService->getTickets($username, $start, $limit, $dateFrom, $dateTo, $status, $apiUser->projects);
+        $results = $this->databridgeService->getTickets($username, $sinceId, $limit, $dateFrom, $dateTo, $status, $apiUser->projects);
 
         return new JsonResponse(
             (new ResponseData(
@@ -70,7 +70,7 @@ class Api extends Controller
                     'dateFrom' => $dateFrom,
                     'dateTo' => $dateTo,
                     'status' => $status,
-                    'start' => $start,
+                    'sinceId' => $sinceId,
                     'limit' => $limit,
                 ],
                 count($results),
