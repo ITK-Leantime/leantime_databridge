@@ -7,9 +7,14 @@ use Carbon\CarbonImmutable;
 /**
  * Validated, fully resolved input for creating a ticket.
  *
- * All fields are already checked and normalized by the controller: the project is
- * grant- and existence-checked, the assignee is resolved to a zp_user id, and the
- * status is resolved to a concrete per-project status int.
+ * All fields are checked and normalized before construction: the project is grant-
+ * and existence-checked, the assignee is resolved to a zp_user id, the milestone is
+ * verified to belong to the target project, and the status is resolved to a concrete
+ * per-project status int.
+ *
+ * Nullable fields are deliberate domain values, not unvalidated gaps: null means
+ * "not provided" and maps to a NULL column — intentionally distinct from 0/empty
+ * (e.g. plannedHours null = "no estimate", which is not an estimate of zero hours).
  */
 readonly class CreateTicketData
 {
