@@ -2,13 +2,17 @@
 
 namespace Leantime\Plugins\Databridge\Repositories;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
+use Leantime\Plugins\Databridge\Model\CreateTicketData;
 
 /**
  * Repository for Databridge plugin data access.
  */
 class DatabridgeRepository
 {
+    private const DATE_FORMAT = 'Y-m-d H:i:s';
+
     /**
      * Create a new query builder instance.
      */
@@ -81,18 +85,38 @@ class DatabridgeRepository
     }
 
     /**
-     * Insert a ticket row and return the new ticket ID.
+     * Insert a ticket for the given create data and return the new ticket ID.
      *
-     * Unset optional columns must be passed as null (never ''): the zp_tickets float
-     * and datetime columns are nullable, and '' would be rejected under strict SQL mode.
-     *
-     * @param  array<string, mixed>  $values  Column => value map.
+     * Owns the mapping from the validated create data to zp_tickets columns. Unset
+     * optional columns are inserted as null (never ''): the float and datetime columns
+     * are nullable, and '' would be rejected under strict SQL mode. Defaults mirror
+     * core's create path: type 'task', date/modified now UTC, kanbanSortIndex 0.
      */
-    public function insertTicket(array $values): int
+    public function insertTicket(CreateTicketData $data): int
     {
+        $now = CarbonImmutable::now('UTC')->format(self::DATE_FORMAT);
+
         return (int) $this->query()
             ->from('zp_tickets')
-            ->insertGetId($values);
+            ->insertGetId([
+                'projectId' => $data->projectId,
+                'headline' => $data->name,
+                'description' => $data->description ?? '',
+                'type' => 'task',
+                'date' => $now,
+                'dateToFinish' => $data->dueDate?->format(self::DATE_FORMAT),
+                'status' => $data->statusId,
+                'userId' => $data->assigneeId,
+                // editorId is a varchar(75) column that stores the assignee's user id as a string.
+                'editorId' => (string) $data->assigneeId,
+                'planHours' => $data->plannedHours,
+                // A fresh ticket has all of its planned work still remaining.
+                'hourRemaining' => $data->plannedHours,
+                'tags' => [] !== $data->tags ? implode(',', $data->tags) : null,
+                'kanbanSortIndex' => 0,
+                'sortindex' => null,
+                'modified' => $now,
+            ]);
     }
 
     /**

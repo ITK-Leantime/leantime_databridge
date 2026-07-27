@@ -207,27 +207,7 @@ class Databridge
             throw new \RuntimeException('Databridge: createTicket called for a project not granted to the API user — grant check missing at the call site.');
         }
 
-        $now = CarbonImmutable::now('UTC')->format(self::DATE_FORMAT);
-
-        $ticketId = $this->repository->insertTicket([
-            'projectId' => $data->projectId,
-            'headline' => $data->name,
-            'description' => $data->description ?? '',
-            'type' => 'task',
-            'date' => $now,
-            'dateToFinish' => $data->dueDate?->format(self::DATE_FORMAT),
-            'status' => $data->statusId,
-            'userId' => $data->assigneeId,
-            // editorId is a varchar(75) column that stores the assignee's user id as a string.
-            'editorId' => (string) $data->assigneeId,
-            'planHours' => $data->plannedHours,
-            // A fresh ticket has all of its planned work still remaining.
-            'hourRemaining' => $data->plannedHours,
-            'tags' => [] !== $data->tags ? implode(',', $data->tags) : null,
-            'kanbanSortIndex' => 0,
-            'sortindex' => null,
-            'modified' => $now,
-        ]);
+        $ticketId = $this->repository->insertTicket($data);
 
         $row = $this->repository->findTicketRowById($ticketId);
 
