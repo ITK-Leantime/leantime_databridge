@@ -150,6 +150,14 @@ class Databridge
     }
 
     /**
+     * Whether a milestone with the given ID exists in the given project.
+     */
+    public function milestoneExistsInProject(int $milestoneId, int $projectId): bool
+    {
+        return $this->repository->milestoneExistsInProject($milestoneId, $projectId);
+    }
+
+    /**
      * Resolve the status int a new ticket should get: the project's first NEW-typed
      * status, falling back to core's seed id (3) when the project has none configured —
      * mirrors core's own create behavior.

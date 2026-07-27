@@ -85,6 +85,21 @@ class DatabridgeRepository
     }
 
     /**
+     * Whether a milestone with the given ID exists in the given project.
+     *
+     * Milestones live in zp_tickets as rows with type 'milestone'.
+     */
+    public function milestoneExistsInProject(int $milestoneId, int $projectId): bool
+    {
+        return $this->query()
+            ->from('zp_tickets')
+            ->where('id', '=', $milestoneId)
+            ->where('type', '=', 'milestone')
+            ->where('projectId', '=', $projectId)
+            ->exists();
+    }
+
+    /**
      * Insert a ticket for the given create data and return the new ticket ID.
      *
      * Owns the mapping from the validated create data to zp_tickets columns. Unset
@@ -113,6 +128,7 @@ class DatabridgeRepository
                 // A fresh ticket has all of its planned work still remaining.
                 'hourRemaining' => $data->plannedHours,
                 'tags' => [] !== $data->tags ? implode(',', $data->tags) : null,
+                'milestoneid' => $data->milestoneId,
                 'kanbanSortIndex' => 0,
                 'sortindex' => null,
                 'modified' => $now,

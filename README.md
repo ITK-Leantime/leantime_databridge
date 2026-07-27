@@ -206,6 +206,7 @@ Creates a ticket in a granted project, assigned to the given username. Requires 
 | `dueDate` | string | No | none | `Y-m-d` or `Y-m-d H:i:s`, interpreted as **UTC**; a bare date gets a `00:00:00` time |
 | `tags` | string[] | No | `[]` | Each tag non-empty and comma-free (comma is the storage delimiter); combined length max 255 |
 | `plannedHours` | number | No | none | Planned hours, `0`–`100` (upper limit configurable, see below); also initializes remaining hours |
+| `milestoneId` | int | No | none | Milestone to attach the ticket to; must be a milestone in the target project |
 
 ### Behavior
 
@@ -261,7 +262,8 @@ The created ticket is returned in the same shape as a list result:
     "description": "Users cannot log in with SSO",
     "dueDate": "2026-08-01",
     "tags": ["bug", "auth"],
-    "plannedHours": 4.0
+    "plannedHours": 4.0,
+    "milestoneId": null
   },
   "resultsCount": 1,
   "results": [
@@ -302,6 +304,8 @@ Input is invalid; the `error` message states the problem. Examples:
 - `The "tags" field must be an array of non-empty strings without commas.`
 - `The "plannedHours" field must be a number between 0 and 100.`
 - `The "description" field must not exceed 65535 bytes.`
+- `The "milestoneId" field must be a positive integer.`
+- `Unknown "milestoneId" for the given project.`
 
 ```json
 {"error": "The \"username\" parameter is required."}

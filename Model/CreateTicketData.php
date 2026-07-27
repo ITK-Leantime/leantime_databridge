@@ -21,6 +21,8 @@ readonly class CreateTicketData
      * @param  ?CarbonImmutable  $dueDate  Due date in UTC, null if unset.
      * @param  string[]  $tags  Clean tag list (no commas, deduplicated); [] if unset.
      * @param  ?float  $plannedHours  Planned hours, null if unset.
+     * @param  ?int  $milestoneId  Milestone to attach the ticket to, null if unset (already
+     *                             verified to be a milestone in the target project).
      * @param  int  $statusId  Concrete per-project status int (already resolved).
      */
     public function __construct(
@@ -31,6 +33,7 @@ readonly class CreateTicketData
         public ?CarbonImmutable $dueDate,
         public array $tags,
         public ?float $plannedHours,
+        public ?int $milestoneId,
         public int $statusId,
     ) {}
 }

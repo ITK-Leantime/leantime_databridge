@@ -92,7 +92,7 @@ class Api extends Controller
         }
 
         try {
-            $projectId = $this->validateProjectId($input);
+            $projectId = PositiveInt::requiredField($input, 'projectId');
 
             // Grant check before existence: an ungranted key must not be able to probe project IDs.
             if (! $apiUser->canAccessProject($projectId)) {
@@ -105,6 +105,7 @@ class Api extends Controller
             $tags = $this->validateTags($input);
             $plannedHours = $this->validatePlannedHours($input);
             $dueDate = $this->validateDueDate($input);
+            $milestoneId = PositiveInt::optionalField($input, 'milestoneId');
         } catch (InvalidInputException $e) {
             return new JsonResponse(['error' => $e->getMessage()], 400);
         }
@@ -119,6 +120,12 @@ class Api extends Controller
         // there would be invisible.
         if (-1 === (int) $project->state) {
             return new JsonResponse(['error' => 'The given project is closed.'], 400);
+        }
+
+        // One message for nonexistent / other-project / not-a-milestone ids: within the
+        // granted project there is nothing to distinguish, and outside it nothing to leak.
+        if (null !== $milestoneId && ! $this->databridgeService->milestoneExistsInProject($milestoneId, $projectId)) {
+            return new JsonResponse(['error' => 'Unknown "milestoneId" for the given project.'], 400);
         }
 
         $assigneeId = $this->databridgeService->findUserIdByUsername($username);
@@ -136,7 +143,7 @@ class Api extends Controller
 
         $ticket = $this->databridgeService->createTicket(
             $apiUser,
-            new CreateTicketData($projectId, $assigneeId, $name, $description, $dueDate, $tags, $plannedHours, $statusId),
+            new CreateTicketData($projectId, $assigneeId, $name, $description, $dueDate, $tags, $plannedHours, $milestoneId, $statusId),
         );
 
         return new JsonResponse(
@@ -149,29 +156,13 @@ class Api extends Controller
                     'dueDate' => $input['dueDate'] ?? null,
                     'tags' => $tags,
                     'plannedHours' => $plannedHours,
+                    'milestoneId' => $milestoneId,
                 ],
                 1,
                 [$ticket],
             ))->toArray(),
             201,
         );
-    }
-
-    /**
-     * Validate and normalize the "projectId" field: a positive int, or a positive
-     * integer string.
-     *
-     * @throws InvalidInputException
-     */
-    private function validateProjectId(array $input): int
-    {
-        $projectId = PositiveInt::parse($input['projectId'] ?? null);
-
-        if (null === $projectId) {
-            throw new InvalidInputException('The "projectId" field is required and must be a positive integer.');
-        }
-
-        return $projectId;
     }
 
     /**
