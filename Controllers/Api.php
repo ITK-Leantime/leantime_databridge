@@ -9,6 +9,7 @@ use Leantime\Plugins\Databridge\Model\ApiUser;
 use Leantime\Plugins\Databridge\Model\CreateTicketData;
 use Leantime\Plugins\Databridge\Model\ResponseData;
 use Leantime\Plugins\Databridge\Services\Databridge;
+use Leantime\Plugins\Databridge\Utils\PositiveInt;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 /**
@@ -165,19 +166,19 @@ class Api extends Controller
 
     /**
      * Validate and normalize the "projectId" field: a positive int, or a positive
-     * digit-string (mirrors ApiUsers::parseProjectId tolerance).
+     * integer string.
      *
      * @throws InvalidInputException
      */
     private function validateProjectId(array $input): int
     {
-        $value = $input['projectId'] ?? null;
+        $projectId = PositiveInt::parse($input['projectId'] ?? null);
 
-        if (! $this->isPositiveIntLike($value)) {
+        if (null === $projectId) {
             throw new InvalidInputException('The "projectId" field is required and must be a positive integer.');
         }
 
-        return (int) $value;
+        return $projectId;
     }
 
     /**
@@ -360,17 +361,5 @@ class Api extends Controller
         return is_numeric($value) && is_finite((float) $value) && (float) $value > 0
             ? (float) $value
             : self::DEFAULT_MAX_PLANNED_HOURS;
-    }
-
-    /**
-     * Whether a value is a positive integer or a positive integer-like string.
-     */
-    private function isPositiveIntLike(mixed $value): bool
-    {
-        if (is_int($value)) {
-            return $value > 0;
-        }
-
-        return is_string($value) && ctype_digit($value) && (int) $value > 0;
     }
 }
