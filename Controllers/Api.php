@@ -17,8 +17,6 @@ use Symfony\Component\HttpFoundation\JsonResponse;
  */
 class Api extends Controller
 {
-    private const STATUS_TYPES = ['NEW', 'INPROGRESS', 'DONE'];
-
     /**
      * Byte size of the zp_tickets.description TEXT column. Exceeding it would be a DB
      * error (strict SQL mode) or silent truncation (non-strict), so reject explicitly.
@@ -107,7 +105,6 @@ class Api extends Controller
             $tags = $this->validateTags($input);
             $plannedHours = $this->validatePlannedHours($input);
             $dueDate = $this->validateDueDate($input);
-            $statusType = $this->validateStatusType($input);
         } catch (InvalidInputException $e) {
             return new JsonResponse(['error' => $e->getMessage()], 400);
         }
@@ -135,10 +132,7 @@ class Api extends Controller
             return new JsonResponse(['error' => 'The "username" user does not have access to the given project.'], 400);
         }
 
-        $statusId = $this->databridgeService->resolveStatusIdForCreate($projectId, $statusType);
-        if (null === $statusId) {
-            return new JsonResponse(['error' => sprintf('No status of type "%s" is configured for this project.', $statusType)], 400);
-        }
+        $statusId = $this->databridgeService->resolveNewStatusId($projectId);
 
         $ticket = $this->databridgeService->createTicket(
             $apiUser,
@@ -155,7 +149,6 @@ class Api extends Controller
                     'dueDate' => $input['dueDate'] ?? null,
                     'tags' => $tags,
                     'plannedHours' => $plannedHours,
-                    'status' => $statusType,
                 ],
                 1,
                 [$ticket],
@@ -326,27 +319,6 @@ class Api extends Controller
         return $dueDate;
     }
 
-    /**
-     * Validate and normalize the optional "status" field to an uppercase status type.
-     * Only the format is checked here; resolution to a per-project status int happens
-     * after project existence is confirmed.
-     *
-     * @throws InvalidInputException
-     */
-    private function validateStatusType(array $input): ?string
-    {
-        if (! isset($input['status'])) {
-            return null;
-        }
-
-        $statusType = is_string($input['status']) ? strtoupper(trim($input['status'])) : '';
-
-        if (! in_array($statusType, self::STATUS_TYPES, true)) {
-            throw new InvalidInputException('The "status" field must be one of NEW, INPROGRESS, DONE.');
-        }
-
-        return $statusType;
-    }
 
     /**
      * Upper limit for the "plannedHours" field, overridable via the

@@ -23,7 +23,9 @@ class Databridge
 
     /**
      * Core's seed id for a "new" ticket status, used as a fallback when a project has no
-     * NEW-typed status configured.
+     * NEW-typed status configured. The id comes from the default status scheme in
+     * \Leantime\Domain\Tickets\Repositories\Tickets::$statusListSeed (3 => NEW), which is
+     * also what core's own Tickets service falls back to on create ($values['status'] ?? 3).
      */
     private const DEFAULT_NEW_STATUS_ID = 3;
 
@@ -148,23 +150,19 @@ class Databridge
     }
 
     /**
-     * Resolve a status type (NEW/INPROGRESS/DONE) to the project's first matching status int.
-     *
-     * A null $statusType means "default for a new ticket": the first NEW status, falling
-     * back to core's seed id (3) when the project has none configured. An explicit type
-     * that matches nothing returns null so the caller can reject it.
+     * Resolve the status int a new ticket should get: the project's first NEW-typed
+     * status, falling back to core's seed id (3) when the project has none configured —
+     * mirrors core's own create behavior.
      */
-    public function resolveStatusIdForCreate(int $projectId, ?string $statusType): ?int
+    public function resolveNewStatusId(int $projectId): int
     {
-        $wanted = $statusType ?? 'NEW';
-
         foreach ($this->ticketRepository->getStateLabels($projectId) as $key => $label) {
-            if (isset($label['statusType']) && $wanted === $label['statusType']) {
+            if (isset($label['statusType']) && 'NEW' === $label['statusType']) {
                 return (int) $key;
             }
         }
 
-        return null === $statusType ? self::DEFAULT_NEW_STATUS_ID : null;
+        return self::DEFAULT_NEW_STATUS_ID;
     }
 
     /**

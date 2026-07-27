@@ -206,7 +206,6 @@ Creates a ticket in a granted project, assigned to the given username. Requires 
 | `dueDate` | string | No | none | `Y-m-d` or `Y-m-d H:i:s`, interpreted as **UTC**; a bare date gets a `00:00:00` time |
 | `tags` | string[] | No | `[]` | Each tag non-empty and comma-free (comma is the storage delimiter); combined length max 255 |
 | `plannedHours` | number | No | none | Planned hours, `0`–`100` (upper limit configurable, see below); also initializes remaining hours |
-| `status` | string | No | project's first `NEW` status | `NEW`, `INPROGRESS`, or `DONE` (case-insensitive), resolved to a per-project status id |
 
 ### Behavior
 
@@ -229,8 +228,8 @@ Creates a ticket in a granted project, assigned to the given username. Requires 
 - **plannedHours cap** — values above `100` are rejected. Override the limit in
   `config/.env` via `LEAN_DATABRIDGE_MAX_PLANNED_HOURS` (a non-positive or non-numeric
   value falls back to the default of `100`).
-- Tickets are created as type `task`. A fresh ticket's remaining hours equal its planned
-  hours.
+- Tickets are created as type `task` with the project's first `NEW` status — the status is
+  not client-settable. A fresh ticket's remaining hours equal its planned hours.
 
 ### Example
 
@@ -245,8 +244,7 @@ curl -k -X POST "https://leantime.example.com/api/databridge/tickets" \
     "description": "Users cannot log in with SSO",
     "dueDate": "2026-08-01",
     "tags": ["bug", "auth"],
-    "plannedHours": 4,
-    "status": "new"
+    "plannedHours": 4
   }'
 ```
 
@@ -263,8 +261,7 @@ The created ticket is returned in the same shape as a list result:
     "description": "Users cannot log in with SSO",
     "dueDate": "2026-08-01",
     "tags": ["bug", "auth"],
-    "plannedHours": 4.0,
-    "status": "NEW"
+    "plannedHours": 4.0
   },
   "resultsCount": 1,
   "results": [
@@ -302,7 +299,6 @@ Input is invalid; the `error` message states the problem. Examples:
 - `The given project is closed.`
 - `The "username" user does not have access to the given project.`
 - `The "dueDate" field must be a valid date in "Y-m-d" or "Y-m-d H:i:s" format (UTC).`
-- `The "status" field must be one of NEW, INPROGRESS, DONE.`
 - `The "tags" field must be an array of non-empty strings without commas.`
 - `The "plannedHours" field must be a number between 0 and 100.`
 - `The "description" field must not exceed 65535 bytes.`
