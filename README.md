@@ -1,6 +1,6 @@
 # Databridge Plugin
 
-A Leantime plugin that exposes an API endpoint for retrieving tickets filtered by username (email), with optional date range and status filtering. Designed for consumption by remote AI agents and external integrations.
+A Leantime plugin that exposes API endpoints for retrieving tickets filtered by username (email) — with optional date range and status filtering — and for creating tickets assigned to a user. Designed for consumption by remote AI agents and external integrations.
 
 ## Installation
 
@@ -50,8 +50,8 @@ users:
 
 | Operation | Used by |
 |-----------|-----------------------------------------|
-| `read`    | `GET\|POST /api/databridge/tickets`     |
-| `write`   | Reserved for future endpoints           |
+| `read`    | `GET /api/databridge/tickets`           |
+| `write`   | `POST /api/databridge/tickets`          |
 | `delete`  | Reserved for future endpoints           |
 
 ### POC limitations
@@ -66,12 +66,16 @@ same IP returns `429 Too Many Requests`. Both limits are configurable in `config
 - `LEAN_DATABRIDGE_RATELIMIT_ATTEMPTS` — failed attempts allowed per window (default `20`)
 - `LEAN_DATABRIDGE_RATELIMIT_DECAY` — window length in seconds (default `60`)
 
-## Endpoint
+## Endpoints
 
-```
-POST /api/databridge/tickets
-GET  /api/databridge/tickets
-```
+| Method | Path | Operation | Description |
+|--------|------|-----------|--------------------------------|
+| `GET`  | `/api/databridge/tickets` | `read`  | List tickets for a username |
+| `POST` | `/api/databridge/tickets` | `write` | Create a ticket for a username |
+
+The `401` / `403` (operation) / `429` responses in [Error responses](#error-responses) apply to both.
+
+## Listing tickets (`GET /api/databridge/tickets`)
 
 ### Parameters
 
@@ -81,7 +85,7 @@ GET  /api/databridge/tickets
 | `dateFrom` | string | No       |         | ISO date (`Y-m-d`), filters `dateToFinish >=`     |
 | `dateTo`   | string | No       |         | ISO date (`Y-m-d`), filters `dateToFinish <=`     |
 | `status`   | string | No       |         | Status type: `NEW`, `INPROGRESS`, `DONE` (case-insensitive) |
-| `start`    | int    | No       | 0       | Pagination offset by ticket ID                    |
+| `sinceId`  | int    | No       | 0       | Pagination cursor: minimum ticket ID (`id >=`), not a row offset |
 | `limit`    | int    | No       | 100     | Maximum number of results                         |
 
 ### Ticket matching
@@ -99,76 +103,59 @@ key in the auth YAML). A grant listing a nonexistent project ID is legal and sim
 yields empty results, not an error. Status filtering is equally scoped: the status
 type (`NEW`/`INPROGRESS`/`DONE`) is resolved against granted projects only.
 
-## Examples
+### Examples
 
-### POST with JSON body (recommended)
+#### Basic request
 
 ```bash
-curl -k -X POST https://leantime.example.com/api/databridge/tickets \
-  -H "x-api-key: YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"username": "user@example.com"}'
+curl -k "https://leantime.example.com/api/databridge/tickets?username=user@example.com" \
+  -H "x-api-key: YOUR_API_KEY"
 ```
 
-### GET with query parameters
+#### With a result limit
 
 ```bash
 curl -k "https://leantime.example.com/api/databridge/tickets?username=user@example.com&limit=50" \
   -H "x-api-key: YOUR_API_KEY"
 ```
 
-### With date filtering
+#### With date filtering
 
 ```bash
-curl -k -X POST https://leantime.example.com/api/databridge/tickets \
-  -H "x-api-key: YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"username": "user@example.com", "dateFrom": "2026-01-01", "dateTo": "2026-12-31"}'
+curl -k "https://leantime.example.com/api/databridge/tickets?username=user@example.com&dateFrom=2026-01-01&dateTo=2026-12-31" \
+  -H "x-api-key: YOUR_API_KEY"
 ```
 
-### With status filtering
+#### With status filtering
 
 ```bash
-curl -k -X POST https://leantime.example.com/api/databridge/tickets \
-  -H "x-api-key: YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"username": "user@example.com", "status": "inprogress"}'
+curl -k "https://leantime.example.com/api/databridge/tickets?username=user@example.com&status=inprogress" \
+  -H "x-api-key: YOUR_API_KEY"
 ```
 
-### Combined filters
+#### Combined filters
 
 ```bash
-curl -k -X POST https://leantime.example.com/api/databridge/tickets \
-  -H "x-api-key: YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "user@example.com",
-    "status": "inprogress",
-    "dateFrom": "2026-01-01",
-    "dateTo": "2026-12-31",
-    "limit": 10
-  }'
+curl -k "https://leantime.example.com/api/databridge/tickets?username=user@example.com&status=inprogress&dateFrom=2026-01-01&dateTo=2026-12-31&limit=10" \
+  -H "x-api-key: YOUR_API_KEY"
 ```
 
-### Pagination
+#### Pagination
 
-Use `start` (minimum ticket ID) and `limit` to paginate through results:
+`sinceId` is a keyset cursor (minimum ticket ID), **not** a row offset. To fetch the next
+page, pass the last returned ticket ID + 1:
 
 ```bash
 # First page
-curl -k -X POST https://leantime.example.com/api/databridge/tickets \
-  -H "x-api-key: YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"username": "user@example.com", "start": 0, "limit": 50}'
+curl -k "https://leantime.example.com/api/databridge/tickets?username=user@example.com&sinceId=0&limit=50" \
+  -H "x-api-key: YOUR_API_KEY"
 
-# Next page (use the last ticket ID + 1 from previous response)
-curl -k -X POST https://leantime.example.com/api/databridge/tickets \
-  -H "x-api-key: YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"username": "user@example.com", "start": 1051, "limit": 50}'
+# Next page (use the last ticket ID + 1 from the previous response)
+curl -k "https://leantime.example.com/api/databridge/tickets?username=user@example.com&sinceId=1051&limit=50" \
+  -H "x-api-key: YOUR_API_KEY"
 ```
 
-## Response format
+### Response format
 
 ```json
 {
@@ -177,7 +164,7 @@ curl -k -X POST https://leantime.example.com/api/databridge/tickets \
     "dateFrom": "2026-01-01",
     "dateTo": "2026-12-31",
     "status": null,
-    "start": 0,
+    "sinceId": 0,
     "limit": 100
   },
   "resultsCount": 3,
@@ -200,9 +187,125 @@ curl -k -X POST https://leantime.example.com/api/databridge/tickets \
 }
 ```
 
+Note: `plannedHours`/`remainingHours` may be `0` (UI-created tickets — core defaults empty
+inputs to zero) or `null` (API-created tickets with no estimate).
+
+## Creating a ticket (`POST /api/databridge/tickets`)
+
+Creates a ticket in a granted project, assigned to the given username. Requires the
+`write` operation. Body is JSON.
+
+### Body fields
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `projectId` | int | Yes | | Target project; must be covered by the key's `projects` grant |
+| `username` | string | Yes | | Assignee email; must have access to the target project; recorded as both the assignee and the creator |
+| `name` | string | Yes | | Ticket headline (max 255 characters) |
+| `description` | string | No | `""` | Ticket description (max 65535 bytes) |
+| `dueDate` | string | No | none | `Y-m-d` or `Y-m-d H:i:s`, interpreted as **UTC**; a bare date gets a `00:00:00` time |
+| `tags` | string[] | No | `[]` | Each tag non-empty and comma-free (comma is the storage delimiter); combined length max 255 |
+| `plannedHours` | number | No | none | Planned hours, `0`–`100` (upper limit configurable, see below); also initializes remaining hours |
+| `milestoneId` | int | No | none | Milestone to attach the ticket to; must be a milestone in the target project |
+
+### Behavior
+
+- **Project grant** — `403` if `projectId` is not covered by the key's `projects` grant.
+  The grant is checked before existence, so an ungranted key cannot probe which project
+  IDs exist.
+- **Assignee must have project access** — the `username` user must be able to access the
+  target project per Leantime's access model (admins/owners always; everyone for
+  "accessible to everyone" projects; client users for client-scoped projects; directly
+  assigned users otherwise). Otherwise `400` — a ticket assigned to someone who cannot
+  see its project would be invisible to them.
+- **No tickets in closed projects** — creating into a closed project ("Closed" in project
+  settings; the projects board calls the same state "archive") returns `400`; Leantime
+  hides closed projects from every listing, so the ticket would be invisible. Reading
+  tickets from closed projects via `GET` still works (reporting/history).
+- **No notifications, no events** — unlike in-app creation, this endpoint fires no Leantime
+  events and sends no notification emails. This is by design: API-key requests have no
+  session user to attribute the activity to.
+- **Not idempotent** — each call creates a new ticket; retries create duplicates.
+- **plannedHours cap** — values above `100` are rejected. Override the limit in
+  `config/.env` via `LEAN_DATABRIDGE_MAX_PLANNED_HOURS` (a non-positive or non-numeric
+  value falls back to the default of `100`).
+- Tickets are created as type `task` with the project's first `NEW` status — the status is
+  not client-settable. A fresh ticket's remaining hours equal its planned hours.
+
+### Example
+
+```bash
+curl -k -X POST "https://leantime.example.com/api/databridge/tickets" \
+  -H "x-api-key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "projectId": 1,
+    "username": "user@example.com",
+    "name": "Fix login bug",
+    "description": "Users cannot log in with SSO",
+    "dueDate": "2026-08-01",
+    "tags": ["bug", "auth"],
+    "plannedHours": 4
+  }'
+```
+
+### Response (`201 Created`)
+
+The created ticket is returned in the same shape as a list result:
+
+```json
+{
+  "parameters": {
+    "projectId": 1,
+    "username": "user@example.com",
+    "name": "Fix login bug",
+    "description": "Users cannot log in with SSO",
+    "dueDate": "2026-08-01",
+    "tags": ["bug", "auth"],
+    "plannedHours": 4.0,
+    "milestoneId": null
+  },
+  "resultsCount": 1,
+  "results": [
+    {
+      "id": 43,
+      "projectId": 1,
+      "name": "Fix login bug",
+      "status": "NEW",
+      "milestoneId": null,
+      "tags": ["bug", "auth"],
+      "worker": "user@example.com",
+      "plannedHours": 4.0,
+      "remainingHours": 4.0,
+      "dueDate": "2026-08-01T00:00:00.000000Z",
+      "resolutionDate": null,
+      "modified": "2026-07-22T09:30:00.000000Z"
+    }
+  ]
+}
+```
+
 ## Error responses
 
-### Missing username (400)
+Shared across both endpoints unless noted.
+
+### Bad request (400)
+
+Input is invalid; the `error` message states the problem. Examples:
+
+- `The "username" parameter is required.` — GET, missing username
+- `Request body must be a non-empty JSON object.` — POST, missing or non-JSON body
+- `The "projectId" field is required and must be a positive integer.`
+- `The "name" field is required.` / `The "name" field must not exceed 255 characters.`
+- `Unknown "projectId".` / `Unknown "username".`
+- `The given project is closed.`
+- `The "username" user does not have access to the given project.`
+- `The "dueDate" field must be a valid date in "Y-m-d" or "Y-m-d H:i:s" format (UTC).`
+- `The "tags" field must be an array of non-empty strings without commas.`
+- `The "plannedHours" field must be a number between 0 and 100.`
+- `The "description" field must not exceed 65535 bytes.`
+- `The "milestoneId" field must be a positive integer.`
+- `Unknown "milestoneId" for the given project.`
 
 ```json
 {"error": "The \"username\" parameter is required."}
@@ -221,10 +324,18 @@ is disabled.
 
 ### Operation not granted (403)
 
-The key is valid but its user lacks the operation the endpoint requires.
+The key is valid but its user lacks the operation the endpoint requires (e.g. a `read`-only
+key on the `POST` endpoint).
 
 ```json
 {"error": "Operation not permitted for this API key"}
+```
+
+For `POST`, a valid `write` key whose `projects` grant does not cover the target project
+gets a distinct `403`:
+
+```json
+{"error": "Project not granted for this API key."}
 ```
 
 ### Too many failed attempts (429)

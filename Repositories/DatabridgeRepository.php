@@ -2,14 +2,17 @@
 
 namespace Leantime\Plugins\Databridge\Repositories;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
-use Illuminate\Support\Facades\Schema;
+use Leantime\Plugins\Databridge\Model\CreateTicketData;
 
 /**
  * Repository for Databridge plugin data access.
  */
 class DatabridgeRepository
 {
+    private const DATE_FORMAT = 'Y-m-d H:i:s';
+
     /**
      * Create a new query builder instance.
      */
@@ -39,11 +42,11 @@ class DatabridgeRepository
      * @param  ?int[]  $statusIds  Optional list of status ints to filter on.
      * @param  ?int[]  $allowedProjects  Granted project IDs; null = no restriction.
      */
-    public function getTicketsByUsername(string $username, int $start, int $limit, ?string $dateFrom, ?string $dateTo, ?array $statusIds, ?array $allowedProjects): array
+    public function getTicketsByUsername(string $username, int $sinceId, int $limit, ?string $dateFrom, ?string $dateTo, ?array $statusIds, ?array $allowedProjects): array
     {
         return $this->buildUserTicketsQuery($username, $allowedProjects)
             ->selectRaw('DISTINCT ticket.id, ticket.headline, ticket.projectId, ticket.status, ticket.planHours, ticket.hourRemaining, ticket.tags, ticket.dateToFinish, ticket.editTo, ticket.milestoneid, ticket.modified, editor.username')
-            ->where('ticket.id', '>=', $start)
+            ->where('ticket.id', '>=', $sinceId)
             ->when(null !== $dateFrom, fn ($query) => $query->where('ticket.dateToFinish', '>=', $dateFrom))
             ->when(null !== $dateTo, fn ($query) => $query->where('ticket.dateToFinish', '<=', $dateTo))
             ->when(null !== $statusIds, fn ($query) => $query->whereIn('ticket.status', $statusIds))
@@ -54,58 +57,123 @@ class DatabridgeRepository
     }
 
     /**
+     * Resolve a username (email) to the zp_user id, or null when unknown.
+     */
+    public function findUserIdByUsername(string $username): ?int
+    {
+        $id = $this->query()
+            ->from('zp_user')
+            ->where('username', '=', $username)
+            ->value('id');
+
+        return null !== $id ? (int) $id : null;
+    }
+
+    /**
+     * Fetch a project's id and state, or null when it does not exist.
+     *
+     * Returns the row rather than the bare state because state NULL is a legal
+     * value (= open) and would be indistinguishable from "no such project".
+     */
+    public function findProjectById(int $projectId): ?object
+    {
+        return $this->query()
+            ->from('zp_projects')
+            ->select('id', 'state')
+            ->where('id', '=', $projectId)
+            ->first();
+    }
+
+    /**
+     * Whether a milestone with the given ID exists in the given project.
+     *
+     * Milestones live in zp_tickets as rows with type 'milestone'.
+     */
+    public function milestoneExistsInProject(int $milestoneId, int $projectId): bool
+    {
+        return $this->query()
+            ->from('zp_tickets')
+            ->where('id', '=', $milestoneId)
+            ->where('type', '=', 'milestone')
+            ->where('projectId', '=', $projectId)
+            ->exists();
+    }
+
+    /**
+     * Insert a ticket for the given create data and return the new ticket ID.
+     *
+     * Owns the mapping from the validated create data to zp_tickets columns. Unset
+     * optional columns are inserted as null (never ''): the float and datetime columns
+     * are nullable, and '' would be rejected under strict SQL mode. Defaults mirror
+     * core's create path: type 'task', date/modified now UTC, kanbanSortIndex 0.
+     */
+    public function insertTicket(CreateTicketData $data): int
+    {
+        $now = CarbonImmutable::now('UTC')->format(self::DATE_FORMAT);
+
+        return (int) $this->query()
+            ->from('zp_tickets')
+            ->insertGetId([
+                'projectId' => $data->projectId,
+                'headline' => $data->name,
+                'description' => $data->description ?? '',
+                'type' => 'task',
+                'date' => $now,
+                'dateToFinish' => $data->dueDate?->format(self::DATE_FORMAT),
+                'status' => $data->statusId,
+                'userId' => $data->assigneeId,
+                // editorId is a varchar(75) column that stores the assignee's user id as a string.
+                'editorId' => (string) $data->assigneeId,
+                'planHours' => $data->plannedHours,
+                // A fresh ticket has all of its planned work still remaining.
+                'hourRemaining' => $data->plannedHours,
+                'tags' => [] !== $data->tags ? implode(',', $data->tags) : null,
+                'milestoneid' => $data->milestoneId,
+                'kanbanSortIndex' => 0,
+                'sortindex' => null,
+                'modified' => $now,
+            ]);
+    }
+
+    /**
+     * Fetch a single ticket row by ID in the same column shape as getTicketsByUsername(),
+     * so both can share one row-to-TicketData mapping.
+     */
+    public function findTicketRowById(int $ticketId): ?object
+    {
+        return $this->query()
+            ->from('zp_tickets', 'ticket')
+            ->leftJoin('zp_user as editor', 'editor.id', '=', 'ticket.editorId')
+            ->selectRaw('ticket.id, ticket.headline, ticket.projectId, ticket.status, ticket.planHours, ticket.hourRemaining, ticket.tags, ticket.dateToFinish, ticket.editTo, ticket.milestoneid, ticket.modified, editor.username')
+            ->where('ticket.id', '=', $ticketId)
+            ->first();
+    }
+
+    /**
      * Build the base query for tickets associated with a username, restricted to the
-     * allowed projects.
+     * allowed projects. A ticket matches when the user is the assigned editor or a
+     * Collaborator via zp_entity_relationship. The relationship join can multiply rows
+     * for tickets with several collaborators — callers deduplicate with DISTINCT.
      *
      * @param  ?int[]  $allowedProjects  Granted project IDs; null = no restriction.
      */
     private function buildUserTicketsQuery(string $username, ?array $allowedProjects): Builder
     {
-        $query = $this->query()
+        return $this->query()
             ->from('zp_tickets', 'ticket')
             ->leftJoin('zp_user as editor', 'editor.id', '=', 'ticket.editorId')
-            ->where('ticket.type', '<>', 'milestone')
-            ->when(null !== $allowedProjects, fn ($query) => $query->whereIn('ticket.projectId', $allowedProjects));
-
-        $entityAColumn = $this->getEntityAColumnName();
-
-        if (null !== $entityAColumn) {
-            $query->leftJoin('zp_user as collab_user', function ($join) use ($username) {
-                $join->where('collab_user.username', '=', $username);
+            ->leftJoin('zp_entity_relationship as er', function ($join) {
+                $join->on('er.entityA', '=', 'ticket.id')
+                    ->where('er.entityAType', '=', 'Ticket')
+                    ->where('er.entityBType', '=', 'User')
+                    ->where('er.relationship', '=', 'Collaborator');
             })
-                ->leftJoin('zp_entity_relationship as er', function ($join) use ($entityAColumn) {
-                    $join->on('er.'.$entityAColumn, '=', 'ticket.id')
-                        ->where('er.entityAType', '=', 'Ticket')
-                        ->where('er.entityBType', '=', 'User')
-                        ->where('er.relationship', '=', 'Collaborator')
-                        ->on('er.entityB', '=', 'collab_user.id');
-                })
-                ->where(function ($q) use ($username) {
-                    $q->where('editor.username', '=', $username)
-                        ->orWhereNotNull('er.entityB');
-                });
-        } else {
-            $query->where('editor.username', '=', $username);
-        }
-
-        return $query;
-    }
-
-    /**
-     * Detect the entityA column name in zp_entity_relationship.
-     *
-     * Returns 'entityA' (3.7.x), 'enitityA' (3.5.12 typo), or null if neither exists.
-     */
-    private function getEntityAColumnName(): ?string
-    {
-        if (Schema::hasColumn('zp_entity_relationship', 'entityA')) {
-            return 'entityA';
-        }
-
-        if (Schema::hasColumn('zp_entity_relationship', 'enitityA')) {
-            return 'enitityA';
-        }
-
-        return null;
+            ->leftJoin('zp_user as collab_user', 'collab_user.id', '=', 'er.entityB')
+            ->where('ticket.type', '<>', 'milestone')
+            ->when(null !== $allowedProjects, fn ($query) => $query->whereIn('ticket.projectId', $allowedProjects))
+            ->where(function ($q) use ($username) {
+                $q->where('editor.username', '=', $username)
+                    ->orWhere('collab_user.username', '=', $username);
+            });
     }
 }

@@ -7,6 +7,7 @@ use Leantime\Plugins\Databridge\Exceptions\InvalidApiKeyException;
 use Leantime\Plugins\Databridge\Exceptions\OperationNotGrantedException;
 use Leantime\Plugins\Databridge\Model\ApiUser;
 use Leantime\Plugins\Databridge\Model\Operation;
+use Leantime\Plugins\Databridge\Utils\PositiveInt;
 use Symfony\Component\Yaml\Exception\ParseException;
 use Symfony\Component\Yaml\Yaml;
 
@@ -186,7 +187,7 @@ class ApiUsers
         } elseif (is_array($projectsValue) && [] !== $projectsValue) {
             $projects = [];
             foreach ($projectsValue as $value) {
-                $projectId = $this->parseProjectId($value);
+                $projectId = PositiveInt::parse($value);
 
                 if (null === $projectId) {
                     Log::error('Databridge auth: skipping user with invalid "projects" element — use positive project IDs, e.g. projects: [1, 5], or projects: all', [
@@ -208,26 +209,5 @@ class ApiUsers
         }
 
         return ['key' => $key, 'user' => new ApiUser($name, $operations, $projects)];
-    }
-
-    /**
-     * Parse one YAML "projects" element to a positive project ID.
-     *
-     * Accepts positive ints and digit-strings (YAML authors may quote IDs); rejects
-     * zero, negatives, floats, booleans, and everything else.
-     */
-    private function parseProjectId(mixed $value): ?int
-    {
-        if (is_int($value)) {
-            return $value > 0 ? $value : null;
-        }
-
-        if (is_string($value) && ctype_digit(trim($value))) {
-            $projectId = (int) trim($value);
-
-            return $projectId > 0 ? $projectId : null;
-        }
-
-        return null;
     }
 }
