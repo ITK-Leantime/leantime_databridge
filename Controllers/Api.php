@@ -79,7 +79,7 @@ class Api extends Controller
     }
 
     /**
-     * Create a ticket in a granted project, assigned to the given username.
+     * Create a ticket in a granted project, assigned to the given assignee.
      *
      * $apiUser is deliberately non-nullable (see tickets()). The project grant is checked
      * BEFORE any DB-dependent check so an ungranted key cannot probe which project IDs
@@ -100,7 +100,7 @@ class Api extends Controller
             }
 
             $name = $this->validateName($input);
-            $username = $this->validateUsername($input);
+            $assignee = $this->validateAssignee($input);
             $description = $this->validateDescription($input);
             $tags = $this->validateTags($input);
             $plannedHours = $this->validatePlannedHours($input);
@@ -128,29 +128,29 @@ class Api extends Controller
             return new JsonResponse(['error' => 'Unknown "milestoneId" for the given project.'], 400);
         }
 
-        $assigneeId = $this->databridgeService->findUserIdByUsername($username);
+        $assigneeId = $this->databridgeService->findUserIdByUsername($assignee);
         if (null === $assigneeId) {
-            return new JsonResponse(['error' => 'Unknown "username".'], 400);
+            return new JsonResponse(['error' => 'Unknown "assignee".'], 400);
         }
 
         // A ticket assigned to someone who cannot access its project would be invisible
         // to them; reject it like the core UI does (assignee dropdown = project users).
         if (! $this->databridgeService->isUserAssignedToProject($assigneeId, $projectId)) {
-            return new JsonResponse(['error' => 'The "username" user does not have access to the given project.'], 400);
+            return new JsonResponse(['error' => 'The "assignee" user does not have access to the given project.'], 400);
         }
 
         $statusId = $this->databridgeService->resolveNewStatusId($projectId);
 
         $ticket = $this->databridgeService->createTicket(
             $apiUser,
-            new CreateTicketData($projectId, $assigneeId, $name, $description, $dueDate, $tags, $plannedHours, $milestoneId, $statusId),
+            new CreateTicketData($projectId, $assigneeId, $apiUser->leantimeUserId, $name, $description, $dueDate, $tags, $plannedHours, $milestoneId, $statusId),
         );
 
         return new JsonResponse(
             (new ResponseData(
                 [
                     'projectId' => $projectId,
-                    'username' => $username,
+                    'assignee' => $assignee,
                     'name' => $name,
                     'description' => $description,
                     'dueDate' => $input['dueDate'] ?? null,
@@ -186,19 +186,19 @@ class Api extends Controller
     }
 
     /**
-     * Validate and normalize the required "username" field (the assignee email).
+     * Validate and normalize the required "assignee" field (the assignee's email).
      *
      * @throws InvalidInputException
      */
-    private function validateUsername(array $input): string
+    private function validateAssignee(array $input): string
     {
-        $username = is_string($input['username'] ?? null) ? trim($input['username']) : '';
+        $assignee = is_string($input['assignee'] ?? null) ? trim($input['assignee']) : '';
 
-        if ('' === $username) {
-            throw new InvalidInputException('The "username" field is required.');
+        if ('' === $assignee) {
+            throw new InvalidInputException('The "assignee" field is required.');
         }
 
-        return $username;
+        return $assignee;
     }
 
     /**

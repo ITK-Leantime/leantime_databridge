@@ -20,7 +20,10 @@ readonly class CreateTicketData
 {
     /**
      * @param  int  $projectId  Target project (grant- and existence-checked by the caller).
-     * @param  int  $assigneeId  Resolved zp_user.id of the assignee (becomes editorId AND userId).
+     * @param  int  $assigneeId  Resolved zp_user.id of the assignee (becomes editorId).
+     * @param  int  $creatorId  zp_user.id of the Leantime user connected to the API key
+     *                          (becomes userId, the ticket's creator). Creator and
+     *                          assignee are deliberately distinct.
      * @param  string  $name  Ticket headline (<= 255 chars).
      * @param  ?string  $description  Optional description, null if unset.
      * @param  ?CarbonImmutable  $dueDate  Due date in UTC, null if unset.
@@ -33,6 +36,7 @@ readonly class CreateTicketData
     public function __construct(
         public int $projectId,
         public int $assigneeId,
+        public int $creatorId,
         public string $name,
         public ?string $description,
         public ?CarbonImmutable $dueDate,

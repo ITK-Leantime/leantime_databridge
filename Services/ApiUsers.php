@@ -5,8 +5,10 @@ namespace Leantime\Plugins\Databridge\Services;
 use Illuminate\Support\Facades\Log;
 use Leantime\Plugins\Databridge\Exceptions\InvalidApiKeyException;
 use Leantime\Plugins\Databridge\Exceptions\OperationNotGrantedException;
+use Leantime\Plugins\Databridge\Exceptions\UnresolvableApiUserException;
 use Leantime\Plugins\Databridge\Model\ApiUser;
 use Leantime\Plugins\Databridge\Model\Operation;
+use Leantime\Plugins\Databridge\Repositories\DatabridgeRepository;
 use Leantime\Plugins\Databridge\Utils\PositiveInt;
 use Symfony\Component\Yaml\Exception\ParseException;
 use Symfony\Component\Yaml\Yaml;
@@ -19,13 +21,23 @@ use Symfony\Component\Yaml\Yaml;
  */
 class ApiUsers
 {
-    /** @var ?list<array{key: string, user: ApiUser}> Per-request cache; keys stay out of ApiUser. */
+    /**
+     * Per-request cache of validated YAML entries; keys never leave this service, and the
+     * ApiUser is only constructed after the entry's email resolves to a Leantime user.
+     *
+     * @var ?list<array{key: string, name: string, email: string, operations: Operation[], projects: ?int[]}>
+     */
     private ?array $entries = null;
+
+    public function __construct(
+        private readonly DatabridgeRepository $repository,
+    ) {}
 
     /**
      * Resolve a presented API key to a user.
      *
      * @throws InvalidApiKeyException When the key is missing, empty, or unknown.
+     * @throws UnresolvableApiUserException When the entry's email has no active Leantime user.
      */
     public function authenticate(?string $presentedKey): ApiUser
     {
@@ -39,11 +51,21 @@ class ApiUsers
         foreach ($this->getEntries() as $entry) {
             // Compare against every entry with hash_equals: constant time, no early return.
             if (hash_equals($entry['key'], $presentedKey)) {
-                $match ??= $entry['user'];
+                $match ??= $entry;
             }
         }
 
-        return $match ?? throw new InvalidApiKeyException('Unknown API key');
+        if (null === $match) {
+            throw new InvalidApiKeyException('Unknown API key');
+        }
+
+        $leantimeUserId = $this->repository->findActiveUserIdByUsername($match['email']);
+
+        if (null === $leantimeUserId) {
+            throw new UnresolvableApiUserException($match['name'], $match['email']);
+        }
+
+        return new ApiUser($match['name'], $match['operations'], $match['projects'], $leantimeUserId);
     }
 
     /**
@@ -59,7 +81,7 @@ class ApiUsers
     }
 
     /**
-     * @return list<array{key: string, user: ApiUser}>
+     * @return list<array{key: string, name: string, email: string, operations: Operation[], projects: ?int[]}>
      */
     private function getEntries(): array
     {
@@ -69,7 +91,7 @@ class ApiUsers
     /**
      * Load and validate the auth YAML file.
      *
-     * @return list<array{key: string, user: ApiUser}>
+     * @return list<array{key: string, name: string, email: string, operations: Operation[], projects: ?int[]}>
      */
     private function loadEntries(): array
     {
@@ -109,17 +131,17 @@ class ApiUsers
             }
 
             if (in_array($entry['key'], $seenKeys, true)) {
-                Log::error('Databridge auth: skipping user with duplicate API key', ['name' => $entry['user']->name]);
+                Log::error('Databridge auth: skipping user with duplicate API key', ['name' => $entry['name']]);
 
                 continue;
             }
 
-            if (in_array($entry['user']->name, $seenNames, true)) {
-                Log::warning('Databridge auth: duplicate user name in config', ['name' => $entry['user']->name]);
+            if (in_array($entry['name'], $seenNames, true)) {
+                Log::warning('Databridge auth: duplicate user name in config', ['name' => $entry['name']]);
             }
 
             $seenKeys[] = $entry['key'];
-            $seenNames[] = $entry['user']->name;
+            $seenNames[] = $entry['name'];
             $entries[] = $entry;
         }
 
@@ -133,7 +155,7 @@ class ApiUsers
      * immediately and the problem shows up in the log, instead of a grant being silently
      * dropped).
      *
-     * @return ?array{key: string, user: ApiUser}
+     * @return ?array{key: string, name: string, email: string, operations: Operation[], projects: ?int[]}
      */
     private function validateUser(array $userData, string $index): ?array
     {
@@ -149,6 +171,14 @@ class ApiUsers
 
         if ('' === $key) {
             Log::error('Databridge auth: skipping user without a valid "key"', ['name' => $name]);
+
+            return null;
+        }
+
+        $email = is_string($userData['email'] ?? null) ? trim($userData['email']) : '';
+
+        if ('' === $email) {
+            Log::error('Databridge auth: skipping user without a valid "email" — required; must be the email of an active Leantime user', ['name' => $name]);
 
             return null;
         }
@@ -208,6 +238,6 @@ class ApiUsers
             return null;
         }
 
-        return ['key' => $key, 'user' => new ApiUser($name, $operations, $projects)];
+        return ['key' => $key, 'name' => $name, 'email' => $email, 'operations' => $operations, 'projects' => $projects];
     }
 }

@@ -70,6 +70,26 @@ class DatabridgeRepository
     }
 
     /**
+     * Resolve a username (email) to the zp_user id of an ACTIVE user, or null.
+     *
+     * Comparison is case-insensitive via the column collation (utf8mb4_unicode_ci, with
+     * a UNIQUE index on username); the status check mirrors core's getUserByEmail
+     * (LOWER(status) = 'a'). Used to connect API-key users to real Leantime users —
+     * deactivating the user must kill the key, hence the status filter (unlike
+     * findUserIdByUsername, which serves assignee lookups without one).
+     */
+    public function findActiveUserIdByUsername(string $username): ?int
+    {
+        $id = $this->query()
+            ->from('zp_user')
+            ->where('username', '=', $username)
+            ->whereRaw('LOWER(status) = ?', ['a'])
+            ->value('id');
+
+        return null !== $id ? (int) $id : null;
+    }
+
+    /**
      * Fetch a project's id and state, or null when it does not exist.
      *
      * Returns the row rather than the bare state because state NULL is a legal
@@ -121,7 +141,8 @@ class DatabridgeRepository
                 'date' => $now,
                 'dateToFinish' => $data->dueDate?->format(self::DATE_FORMAT),
                 'status' => $data->statusId,
-                'userId' => $data->assigneeId,
+                // The creator is the Leantime user connected to the API key, not the assignee.
+                'userId' => $data->creatorId,
                 // editorId is a varchar(75) column that stores the assignee's user id as a string.
                 'editorId' => (string) $data->assigneeId,
                 'planHours' => $data->plannedHours,

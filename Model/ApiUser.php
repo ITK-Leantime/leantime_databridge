@@ -14,11 +14,16 @@ readonly class ApiUser
      * @param  Operation[]  $operations  Granted operations.
      * @param  ?int[]  $projects  Granted project IDs; null = all projects (only reachable
      *                            via the explicit "all" sentinel in the YAML file).
+     * @param  int  $leantimeUserId  zp_user.id of the connected ACTIVE Leantime user,
+     *                               resolved from the entry's email at auth time.
+     *                               Non-nullable: an ApiUser cannot exist without a
+     *                               resolved identity.
      */
     public function __construct(
         public string $name,
         public array $operations,
         public ?array $projects,
+        public int $leantimeUserId,
     ) {}
 
     /**

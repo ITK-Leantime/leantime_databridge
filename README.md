@@ -30,21 +30,35 @@ header.
 4. Optionally override the file location in `config/.env`:
    `LEAN_DATABRIDGE_AUTH_FILE=/absolute/path/to/databridge_auth.yaml`
 
-Each user entry defines a `name` (used in logs), a plaintext `key`, the granted
-`operations`, and the granted `projects`. Changes apply on the next request — no cache
-to clear.
+Each user entry defines a `name` (used in logs), a plaintext `key`, an `email`
+connecting the key to a real Leantime user, the granted `operations`, and the granted
+`projects`. Changes apply on the next request — no cache to clear.
 
 ```yaml
 users:
   - name: reporting-agent
     key: "32+-random-chars"
+    email: service-account@example.com   # ACTIVE Leantime user this key acts as
     operations: [read]
     projects: [1, 5, 12]     # Leantime project IDs this key may access
   - name: sync-service
     key: "another-key"
+    email: another-account@example.com
     operations: [read, write]
     projects: all            # explicit sentinel: every project
 ```
+
+### The connected Leantime user
+
+Every key must reference an **active** Leantime user by email (`email`, matched
+case-insensitively against the account's username). The connection is checked on every
+authenticated request:
+
+- If no active Leantime user matches the email — a typo, or the account was deactivated —
+  the key stops working (`401`; the reason is logged). **Deactivating a Leantime user
+  automatically disables all keys connected to them.**
+- Tickets created by the key are **attributed to the connected user as creator**
+  (`userId`); the `assignee` body field only sets the assignee.
 
 ### Operations
 
@@ -71,7 +85,7 @@ same IP returns `429 Too Many Requests`. Both limits are configurable in `config
 | Method | Path | Operation | Description |
 |--------|------|-----------|--------------------------------|
 | `GET`  | `/api/databridge/tickets` | `read`  | List tickets for a username |
-| `POST` | `/api/databridge/tickets` | `write` | Create a ticket for a username |
+| `POST` | `/api/databridge/tickets` | `write` | Create a ticket for an assignee |
 
 The `401` / `403` (operation) / `429` responses in [Error responses](#error-responses) apply to both.
 
@@ -81,7 +95,7 @@ The `401` / `403` (operation) / `429` responses in [Error responses](#error-resp
 
 | Parameter  | Type   | Required | Default | Description                                      |
 |------------|--------|----------|---------|--------------------------------------------------|
-| `username` | string | Yes      |         | Email/username to filter tickets by               |
+| `username` | string | Yes      |         | Email of the user whose tickets to list — matches assignee **or** collaborator (see [Ticket matching](#ticket-matching)) |
 | `dateFrom` | string | No       |         | ISO date (`Y-m-d`), filters `dateToFinish >=`     |
 | `dateTo`   | string | No       |         | ISO date (`Y-m-d`), filters `dateToFinish <=`     |
 | `status`   | string | No       |         | Status type: `NEW`, `INPROGRESS`, `DONE` (case-insensitive) |
@@ -192,7 +206,7 @@ inputs to zero) or `null` (API-created tickets with no estimate).
 
 ## Creating a ticket (`POST /api/databridge/tickets`)
 
-Creates a ticket in a granted project, assigned to the given username. Requires the
+Creates a ticket in a granted project, assigned to the given assignee. Requires the
 `write` operation. Body is JSON.
 
 ### Body fields
@@ -200,7 +214,7 @@ Creates a ticket in a granted project, assigned to the given username. Requires 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `projectId` | int | Yes | | Target project; must be covered by the key's `projects` grant |
-| `username` | string | Yes | | Assignee email; must have access to the target project; recorded as both the assignee and the creator |
+| `assignee` | string | Yes | | Assignee email; must have access to the target project. The ticket's *creator* is the key's connected Leantime user, not this assignee |
 | `name` | string | Yes | | Ticket headline (max 255 characters) |
 | `description` | string | No | `""` | Ticket description (max 65535 bytes) |
 | `dueDate` | string | No | none | `Y-m-d` or `Y-m-d H:i:s`, interpreted as **UTC**; a bare date gets a `00:00:00` time |
@@ -213,7 +227,7 @@ Creates a ticket in a granted project, assigned to the given username. Requires 
 - **Project grant** — `403` if `projectId` is not covered by the key's `projects` grant.
   The grant is checked before existence, so an ungranted key cannot probe which project
   IDs exist.
-- **Assignee must have project access** — the `username` user must be able to access the
+- **Assignee must have project access** — the `assignee` user must be able to access the
   target project per Leantime's access model (admins/owners always; everyone for
   "accessible to everyone" projects; client users for client-scoped projects; directly
   assigned users otherwise). Otherwise `400` — a ticket assigned to someone who cannot
@@ -240,7 +254,7 @@ curl -k -X POST "https://leantime.example.com/api/databridge/tickets" \
   -H "Content-Type: application/json" \
   -d '{
     "projectId": 1,
-    "username": "user@example.com",
+    "assignee": "user@example.com",
     "name": "Fix login bug",
     "description": "Users cannot log in with SSO",
     "dueDate": "2026-08-01",
@@ -257,7 +271,7 @@ The created ticket is returned in the same shape as a list result:
 {
   "parameters": {
     "projectId": 1,
-    "username": "user@example.com",
+    "assignee": "user@example.com",
     "name": "Fix login bug",
     "description": "Users cannot log in with SSO",
     "dueDate": "2026-08-01",
@@ -297,9 +311,9 @@ Input is invalid; the `error` message states the problem. Examples:
 - `Request body must be a non-empty JSON object.` — POST, missing or non-JSON body
 - `The "projectId" field is required and must be a positive integer.`
 - `The "name" field is required.` / `The "name" field must not exceed 255 characters.`
-- `Unknown "projectId".` / `Unknown "username".`
+- `Unknown "projectId".` / `Unknown "assignee".`
 - `The given project is closed.`
-- `The "username" user does not have access to the given project.`
+- `The "assignee" user does not have access to the given project.`
 - `The "dueDate" field must be a valid date in "Y-m-d" or "Y-m-d H:i:s" format (UTC).`
 - `The "tags" field must be an array of non-empty strings without commas.`
 - `The "plannedHours" field must be a number between 0 and 100.`
@@ -314,9 +328,10 @@ Input is invalid; the `error` message states the problem. Examples:
 ### Invalid API key (401)
 
 Returned for a missing, empty, or unknown key — and, fail-closed, when the auth YAML file
-is missing or malformed, or when the user's entry is invalid (e.g. a missing or invalid
-`projects` key; check the Leantime log). Also returned by Leantime core when the plugin
-is disabled.
+is missing or malformed, when the user's entry is invalid (e.g. a missing or invalid
+`email` or `projects` key), or when the entry's `email` does not resolve to an **active**
+Leantime user (stale config, or the account was deactivated). Check the Leantime log for
+the specific reason. Also returned by Leantime core when the plugin is disabled.
 
 ```json
 {"error": "Invalid API Key"}

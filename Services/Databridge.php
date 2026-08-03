@@ -229,6 +229,7 @@ class Databridge
             'ticketId' => $ticketId,
             'projectId' => $data->projectId,
             'assigneeId' => $data->assigneeId,
+            'creatorId' => $data->creatorId,
             'apiUser' => $apiUser->name,
         ]);
 

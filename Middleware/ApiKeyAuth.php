@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 use Leantime\Core\Http\IncomingRequest;
 use Leantime\Plugins\Databridge\Exceptions\InvalidApiKeyException;
 use Leantime\Plugins\Databridge\Exceptions\OperationNotGrantedException;
+use Leantime\Plugins\Databridge\Exceptions\UnresolvableApiUserException;
 use Leantime\Plugins\Databridge\Model\Operation;
 use Leantime\Plugins\Databridge\Services\ApiUsers;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -65,6 +66,14 @@ class ApiKeyAuth
         } catch (InvalidApiKeyException) {
             $this->limiter->hit($throttleKey, $this->decaySeconds());
             Log::warning('Databridge auth: rejected request with missing or unknown API key', ['ip' => $request->getClientIp()]);
+
+            return new JsonResponse(['error' => 'Invalid API Key'], Response::HTTP_UNAUTHORIZED);
+        } catch (UnresolvableApiUserException $e) {
+            // Valid key whose configured email has no active Leantime user (stale config or
+            // a deactivated account) — a config/lifecycle gap, not key guessing: no limiter
+            // hit. The consumer gets the same generic 401 as an unknown key; the specifics
+            // go to the log for the operator.
+            Log::warning('Databridge auth: API user does not resolve to an active Leantime user', ['user' => $e->userName, 'email' => $e->email]);
 
             return new JsonResponse(['error' => 'Invalid API Key'], Response::HTTP_UNAUTHORIZED);
         } catch (OperationNotGrantedException $e) {
