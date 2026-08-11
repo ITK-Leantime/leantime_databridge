@@ -4,7 +4,10 @@ namespace Leantime\Plugins\Databridge\Repositories;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
+use Leantime\Plugins\Databridge\Model\CreateCommentData;
 use Leantime\Plugins\Databridge\Model\CreateTicketData;
+use Leantime\Plugins\Databridge\Model\CreateTimesheetData;
+use Leantime\Plugins\Databridge\Model\UpdateTicketData;
 
 /**
  * Repository for Databridge plugin data access.
@@ -146,6 +149,191 @@ class DatabridgeRepository
             ->leftJoin('zp_user as editor', 'editor.id', '=', 'ticket.editorId')
             ->selectRaw('ticket.id, ticket.headline, ticket.projectId, ticket.status, ticket.planHours, ticket.hourRemaining, ticket.tags, ticket.dateToFinish, ticket.editTo, ticket.milestoneid, ticket.modified, editor.username')
             ->where('ticket.id', '=', $ticketId)
+            ->first();
+    }
+
+    /**
+     * List projects, restricted to the allowed projects.
+     *
+     * @param  ?int[]  $allowedProjects  Granted project IDs; null = no restriction.
+     */
+    public function getProjects(?array $allowedProjects): array
+    {
+        return $this->query()
+            ->from('zp_projects')
+            ->select('id', 'name', 'state')
+            ->when(null !== $allowedProjects, fn ($query) => $query->whereIn('id', $allowedProjects))
+            ->orderBy('id', 'ASC')
+            ->get()
+            ->toArray();
+    }
+
+    /**
+     * List milestones, optionally narrowed to one project and always restricted to the
+     * allowed projects.
+     *
+     * @param  ?int[]  $allowedProjects  Granted project IDs; null = no restriction.
+     */
+    public function getMilestones(?int $projectId, ?array $allowedProjects): array
+    {
+        return $this->query()
+            ->from('zp_tickets')
+            ->select('id', 'projectId', 'headline', 'status', 'dateToFinish')
+            ->where('type', '=', 'milestone')
+            ->when(null !== $projectId, fn ($query) => $query->where('projectId', '=', $projectId))
+            ->when(null !== $allowedProjects, fn ($query) => $query->whereIn('projectId', $allowedProjects))
+            ->orderBy('id', 'ASC')
+            ->get()
+            ->toArray();
+    }
+
+    /**
+     * List time entries for a ticket or a project, restricted to the allowed projects.
+     *
+     * Joins zp_tickets so entries can be project-scoped at all: zp_timesheets only knows
+     * the ticket. Milestones are not excluded — core lets time be booked on them.
+     *
+     * @param  ?int[]  $allowedProjects  Granted project IDs; null = no restriction.
+     */
+    public function getTimesheets(?int $ticketId, ?int $projectId, ?array $allowedProjects): array
+    {
+        return $this->query()
+            ->from('zp_timesheets', 'sheet')
+            ->join('zp_tickets as ticket', 'ticket.id', '=', 'sheet.ticketId')
+            ->leftJoin('zp_user as user', 'user.id', '=', 'sheet.userId')
+            ->selectRaw('sheet.id, sheet.ticketId, ticket.projectId, sheet.userId, sheet.workDate, sheet.hours, sheet.description, sheet.kind, user.username')
+            ->when(null !== $ticketId, fn ($query) => $query->where('sheet.ticketId', '=', $ticketId))
+            ->when(null !== $projectId, fn ($query) => $query->where('ticket.projectId', '=', $projectId))
+            ->when(null !== $allowedProjects, fn ($query) => $query->whereIn('ticket.projectId', $allowedProjects))
+            ->orderBy('sheet.id', 'ASC')
+            ->get()
+            ->toArray();
+    }
+
+    /**
+     * List a ticket's comments, oldest first.
+     *
+     * Returns every comment on the ticket, replies included: zp_comment threads via
+     * commentParent, and dropping replies would silently hide part of the conversation.
+     */
+    public function getTicketComments(int $ticketId): array
+    {
+        return $this->query()
+            ->from('zp_comment', 'comment')
+            ->leftJoin('zp_user as user', 'user.id', '=', 'comment.userId')
+            ->selectRaw('comment.id, comment.moduleId, comment.userId, comment.date, comment.text, user.username')
+            ->where('comment.module', '=', 'ticket')
+            ->where('comment.moduleId', '=', $ticketId)
+            ->orderBy('comment.id', 'ASC')
+            ->get()
+            ->toArray();
+    }
+
+    /**
+     * List metadata for the files attached to a ticket.
+     *
+     * Selects no content column because there is none: zp_file only holds metadata, the
+     * bytes live in the storage backend under encName.
+     */
+    public function getTicketFiles(int $ticketId): array
+    {
+        return $this->query()
+            ->from('zp_file', 'file')
+            ->leftJoin('zp_user as user', 'user.id', '=', 'file.userId')
+            ->selectRaw('file.id, file.moduleId, file.realName, file.extension, file.userId, file.date, user.username')
+            ->where('file.module', '=', 'ticket')
+            ->where('file.moduleId', '=', $ticketId)
+            ->orderBy('file.id', 'ASC')
+            ->get()
+            ->toArray();
+    }
+
+    /**
+     * Apply a partial ticket update.
+     *
+     * The column map comes pre-validated from UpdateTicketData, so only provided fields are
+     * written and absent ones keep their value. modified is always bumped, mirroring core.
+     * The affected-row count is deliberately ignored: writing the values a row already has
+     * affects zero rows, so it cannot distinguish "no such ticket" — callers establish
+     * existence beforehand via findTicketRowById().
+     */
+    public function updateTicket(UpdateTicketData $data): void
+    {
+        $this->query()
+            ->from('zp_tickets')
+            ->where('id', '=', $data->ticketId)
+            ->update($data->columns + ['modified' => CarbonImmutable::now('UTC')->format(self::DATE_FORMAT)]);
+    }
+
+    /**
+     * Insert a time entry and return the new entry ID.
+     *
+     * description is written as null when unset rather than '': the column is nullable and
+     * "no note" is not the same as an empty note. Invoicing and payment flags are left at
+     * their column defaults — this API does not do billing.
+     */
+    public function insertTimesheet(CreateTimesheetData $data): int
+    {
+        $now = CarbonImmutable::now('UTC')->format(self::DATE_FORMAT);
+
+        return (int) $this->query()
+            ->from('zp_timesheets')
+            ->insertGetId([
+                'userId' => $data->userId,
+                'ticketId' => $data->ticketId,
+                'workDate' => $data->workDate->format(self::DATE_FORMAT),
+                'hours' => $data->hours,
+                'description' => $data->description,
+                'kind' => $data->kind,
+                'modified' => $now,
+            ]);
+    }
+
+    /**
+     * Fetch a single time entry by ID in the same column shape as getTimesheets().
+     */
+    public function findTimesheetRowById(int $timesheetId): ?object
+    {
+        return $this->query()
+            ->from('zp_timesheets', 'sheet')
+            ->join('zp_tickets as ticket', 'ticket.id', '=', 'sheet.ticketId')
+            ->leftJoin('zp_user as user', 'user.id', '=', 'sheet.userId')
+            ->selectRaw('sheet.id, sheet.ticketId, ticket.projectId, sheet.userId, sheet.workDate, sheet.hours, sheet.description, sheet.kind, user.username')
+            ->where('sheet.id', '=', $timesheetId)
+            ->first();
+    }
+
+    /**
+     * Insert a top-level ticket comment and return the new comment ID.
+     *
+     * commentParent 0 marks a top-level comment; status is core's default ''. Replies are
+     * not creatable through this API — nothing needs them yet.
+     */
+    public function insertTicketComment(CreateCommentData $data): int
+    {
+        return (int) $this->query()
+            ->from('zp_comment')
+            ->insertGetId([
+                'module' => 'ticket',
+                'moduleId' => $data->ticketId,
+                'userId' => $data->userId,
+                'commentParent' => 0,
+                'date' => CarbonImmutable::now('UTC')->format(self::DATE_FORMAT),
+                'text' => $data->text,
+                'status' => '',
+            ]);
+    }
+
+    /**
+     * Fetch a single comment by ID in the same column shape as getTicketComments().
+     */
+    public function findCommentRowById(int $commentId): ?object
+    {
+        return $this->query()
+            ->from('zp_comment', 'comment')
+            ->leftJoin('zp_user as user', 'user.id', '=', 'comment.userId')
+            ->selectRaw('comment.id, comment.moduleId, comment.userId, comment.date, comment.text, user.username')
+            ->where('comment.id', '=', $commentId)
             ->first();
     }
 
