@@ -68,21 +68,21 @@ same IP returns `429 Too Many Requests`. Both limits are configurable in `config
 
 ## Endpoints
 
-| Method  | Path | Operation | Description |
-|---------|------|-----------|--------------------------------|
-| `GET`   | `/api/databridge/tickets` | `read`  | List tickets for a username |
-| `POST`  | `/api/databridge/tickets` | `write` | Create a ticket for a username |
-| `GET`   | `/api/databridge/tickets/{id}` | `read`  | Get a single ticket |
-| `PATCH` | `/api/databridge/tickets/{id}` | `write` | Update selected fields of a ticket |
-| `GET`   | `/api/databridge/tickets/{id}/comments` | `read`  | List a ticket's comments |
-| `POST`  | `/api/databridge/tickets/{id}/comments` | `write` | Add a comment to a ticket |
-| `GET`   | `/api/databridge/tickets/{id}/files` | `read`  | List a ticket's attachments (metadata only) |
-| `GET`   | `/api/databridge/projects` | `read`  | List granted projects |
-| `GET`   | `/api/databridge/projects/{id}/progress` | `read`  | Project completion percentage and dates |
-| `GET`   | `/api/databridge/projects/{id}/statuses` | `read`  | The project's status labels and types |
-| `GET`   | `/api/databridge/milestones` | `read`  | List milestones |
-| `GET`   | `/api/databridge/timesheets` | `read`  | List logged time entries |
-| `POST`  | `/api/databridge/timesheets` | `write` | Log time against a ticket |
+| Method  | Path                                     | Operation | Description                                 |
+| ------- | ---------------------------------------- | --------- | ------------------------------------------- |
+| `GET`   | `/api/databridge/tickets`                | `read`    | List tickets for a username                 |
+| `POST`  | `/api/databridge/tickets`                | `write`   | Create a ticket for a username              |
+| `GET`   | `/api/databridge/tickets/{id}`           | `read`    | Get a single ticket                         |
+| `PATCH` | `/api/databridge/tickets/{id}`           | `write`   | Update selected fields of a ticket          |
+| `GET`   | `/api/databridge/tickets/{id}/comments`  | `read`    | List a ticket's comments                    |
+| `POST`  | `/api/databridge/tickets/{id}/comments`  | `write`   | Add a comment to a ticket                   |
+| `GET`   | `/api/databridge/tickets/{id}/files`     | `read`    | List a ticket's attachments (metadata only) |
+| `GET`   | `/api/databridge/projects`               | `read`    | List granted projects                       |
+| `GET`   | `/api/databridge/projects/{id}/progress` | `read`    | Project completion percentage and dates     |
+| `GET`   | `/api/databridge/projects/{id}/statuses` | `read`    | The project's status labels and types       |
+| `GET`   | `/api/databridge/milestones`             | `read`    | List milestones                             |
+| `GET`   | `/api/databridge/timesheets`             | `read`    | List logged time entries                    |
+| `POST`  | `/api/databridge/timesheets`             | `write`   | Log time against a ticket                   |
 
 The `401` / `403` (operation) / `429` responses in [Error responses](#error-responses) apply to all of them.
 
@@ -314,17 +314,17 @@ field never clears it, so a caller can change one attribute without reading the 
 
 ### Body fields
 
-| Field            | Type            | Description                                                        |
-|------------------|-----------------|--------------------------------------------------------------------|
-| `name`           | string          | Ticket headline (max 255 characters)                               |
-| `description`    | string          | Free text                                                          |
+| Field            | Type            | Description                                                            |
+| ---------------- | --------------- | ---------------------------------------------------------------------- |
+| `name`           | string          | Ticket headline (max 255 characters)                                   |
+| `description`    | string          | Free text                                                              |
 | `status`         | string          | `NEW`, `INPROGRESS` or `DONE` (case-insensitive), resolved per project |
-| `dueDate`        | string          | `Y-m-d` or `Y-m-d H:i:s`, interpreted as UTC                        |
-| `plannedHours`   | number          | Estimate; `null` clears it                                          |
-| `remainingHours` | number          | Remaining work; `null` clears it                                    |
-| `tags`           | array of string | Replaces the whole tag list                                         |
-| `milestoneId`    | integer         | Must be a milestone in the same project                             |
-| `assignee`       | string          | Username (email) of the new assignee                                |
+| `dueDate`        | string          | `Y-m-d` or `Y-m-d H:i:s`, interpreted as UTC                           |
+| `plannedHours`   | number          | Estimate; `null` clears it                                             |
+| `remainingHours` | number          | Remaining work; `null` clears it                                       |
+| `tags`           | array of string | Replaces the whole tag list                                            |
+| `milestoneId`    | integer         | Must be a milestone in the same project                                |
+| `assignee`       | string          | Username (email) of the new assignee                                   |
 
 Status is given as a **type**, not an integer, because status ids are configured per project and
 can be relabelled — `DONE` resolves to whichever id that project uses.
@@ -340,11 +340,11 @@ Responds `200` with the updated ticket in the same shape as `GET /tickets/{id}`.
 
 ## Logging time (`POST /api/databridge/timesheets`)
 
-| Field         | Type    | Required | Description                                        |
-|---------------|---------|----------|----------------------------------------------------|
+| Field         | Type    | Required | Description                                         |
+| ------------- | ------- | -------- | --------------------------------------------------- |
 | `ticketId`    | integer | Yes      | Ticket to log against; must be in a granted project |
 | `hours`       | number  | Yes      | Hours worked                                        |
-| `workDate`    | string  | Yes      | `Y-m-d` or `Y-m-d H:i:s`, interpreted as UTC         |
+| `workDate`    | string  | Yes      | `Y-m-d` or `Y-m-d H:i:s`, interpreted as UTC        |
 | `username`    | string  | Yes      | Who the time belongs to (there is no session user)  |
 | `description` | string  | No       | Free text                                           |
 | `kind`        | string  | No       | Timesheet kind; defaults to Leantime's general kind |
@@ -360,10 +360,10 @@ Responds `201` with the created entry.
 
 ## Adding a comment (`POST /api/databridge/tickets/{id}/comments`)
 
-| Field      | Type   | Required | Description                                       |
-|------------|--------|----------|---------------------------------------------------|
-| `text`     | string | Yes      | Comment body                                       |
-| `username` | string | Yes      | Comment author (there is no session user)          |
+| Field      | Type   | Required | Description                               |
+| ---------- | ------ | -------- | ----------------------------------------- |
+| `text`     | string | Yes      | Comment body                              |
+| `username` | string | Yes      | Comment author (there is no session user) |
 
 Responds `201` with the created comment. Comments are returned oldest-first by
 `GET /api/databridge/tickets/{id}/comments`.
@@ -384,9 +384,9 @@ never returned; download the file through Leantime itself if the bytes are neede
 
 ## Milestones (`GET /api/databridge/milestones`)
 
-| Parameter   | Type    | Required | Description                                  |
-|-------------|---------|----------|----------------------------------------------|
-| `projectId` | integer | No       | Restrict to one project; must be granted      |
+| Parameter   | Type    | Required | Description                              |
+| ----------- | ------- | -------- | ---------------------------------------- |
+| `projectId` | integer | No       | Restrict to one project; must be granted |
 
 Milestones are stored as tickets of type `milestone`; this endpoint returns them with their
 project, status type and due date.
