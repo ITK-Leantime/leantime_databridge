@@ -356,7 +356,12 @@ curl -k -X POST "https://leantime.example.com/api/databridge/timesheets" \
   -d '{"ticketId":42,"hours":2.5,"workDate":"2026-08-11","username":"user@example.com"}'
 ```
 
-Responds `201` with the created entry.
+Responds `201` with the created entry, or `409` when time is already logged for that
+person, ticket, date and kind — Leantime enforces `UNIQUE (userId, ticketId, workDate, kind)`.
+
+That makes this endpoint **safe to retry**: a client whose request timed out cannot tell
+whether the write landed, and repeating it can never book the same work twice. To add hours to
+a day that already has an entry, read it first and update rather than logging a second one.
 
 ## Adding a comment (`POST /api/databridge/tickets/{id}/comments`)
 
@@ -442,6 +447,15 @@ gets a distinct `403`:
 
 ```json
 {"error": "Project not granted for this API key."}
+```
+
+### Conflict (409)
+
+The request is well-formed but the row already exists. Currently only
+`POST /timesheets`, which Leantime constrains to one entry per person, ticket, date and kind:
+
+```json
+{"error": "Time is already logged for this person, todo, date and kind. Read the existing entries before retrying."}
 ```
 
 ### Too many failed attempts (429)

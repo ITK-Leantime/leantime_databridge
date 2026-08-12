@@ -4,6 +4,7 @@ namespace Leantime\Plugins\Databridge\Controllers;
 
 use Carbon\CarbonImmutable;
 use Leantime\Core\Controller\Controller;
+use Leantime\Plugins\Databridge\Exceptions\DuplicateEntryException;
 use Leantime\Plugins\Databridge\Exceptions\InvalidInputException;
 use Leantime\Plugins\Databridge\Model\ApiUser;
 use Leantime\Plugins\Databridge\Model\CreateCommentData;
@@ -447,10 +448,15 @@ class Api extends Controller
             return new JsonResponse(['error' => 'Unknown "username".'], 400);
         }
 
-        $timesheet = $this->databridgeService->createTimesheet(
-            $apiUser,
-            new CreateTimesheetData($ticketId, $ticket->projectId, $userId, $workDate, $hours, $description, $kind),
-        );
+        try {
+            $timesheet = $this->databridgeService->createTimesheet(
+                $apiUser,
+                new CreateTimesheetData($ticketId, $ticket->projectId, $userId, $workDate, $hours, $description, $kind),
+            );
+        } catch (DuplicateEntryException $e) {
+            // 409 rather than 400: the request is well-formed, the entry simply already exists.
+            return new JsonResponse(['error' => $e->getMessage()], 409);
+        }
 
         return new JsonResponse(
             (new ResponseData(

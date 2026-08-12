@@ -4,7 +4,9 @@ namespace Leantime\Plugins\Databridge\Services;
 
 use Carbon\CarbonImmutable;
 use Carbon\Exceptions\InvalidFormatException;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Log;
+use Leantime\Plugins\Databridge\Exceptions\DuplicateEntryException;
 use Leantime\Domain\Projects\Repositories\Projects as ProjectRepository;
 use Leantime\Domain\Projects\Services\Projects as ProjectService;
 use Leantime\Domain\Tickets\Repositories\Tickets as TicketRepository;
@@ -501,7 +503,21 @@ class Databridge
             throw new \RuntimeException('Databridge: createTimesheet called for a project not granted to the API user — grant check missing at the call site.');
         }
 
-        $timesheetId = $this->repository->insertTimesheet($data);
+        /*
+         * Leantime enforces UNIQUE (userId, ticketId, workDate, kind) on timesheets. Left
+         * uncaught this surfaces as a 500 carrying the failed SQL, so translate it into a
+         * 409 the caller can act on.
+         *
+         * This makes a retry safe after a timeout: the request either booked the time or it
+         * did not, and repeating it can never book the same work twice.
+         */
+        try {
+            $timesheetId = $this->repository->insertTimesheet($data);
+        } catch (UniqueConstraintViolationException) {
+            throw new DuplicateEntryException(
+                'Time is already logged for this person, todo, date and kind. Read the existing entries before retrying.'
+            );
+        }
 
         $row = $this->repository->findTimesheetRowById($timesheetId);
 

@@ -24,3 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 All new endpoints enforce the calling key's operation and project grants, and no core events or
 notifications fire on the write paths — matching the existing `POST /tickets` behaviour.
+
+### Fixed
+
+- `POST /timesheets` returns `409` with a readable message when time is already logged for that
+  person, ticket, date and kind. It previously surfaced Leantime's unique-constraint violation
+  as a `500` carrying the failed SQL statement.
