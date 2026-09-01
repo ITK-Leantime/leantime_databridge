@@ -23,6 +23,7 @@ use Leantime\Plugins\Databridge\Model\StatusData;
 use Leantime\Plugins\Databridge\Model\TicketData;
 use Leantime\Plugins\Databridge\Model\TimesheetData;
 use Leantime\Plugins\Databridge\Model\UpdateTicketData;
+use Leantime\Plugins\Databridge\Model\UserData;
 use Leantime\Plugins\Databridge\Repositories\DatabridgeRepository;
 
 /**
@@ -89,6 +90,31 @@ class Databridge
         $row = $this->repository->findTicketRowById($ticketId);
 
         return null !== $row ? $this->mapRowToTicketData($row) : null;
+    }
+
+    /**
+     * Get the active users assigned to the projects the API user may access.
+     *
+     * @param  ?int  $projectId  Narrow to one project; null = every allowed project.
+     * @param  ?int[]  $allowedProjects  Granted project IDs; null = no restriction.
+     * @return UserData[]
+     */
+    public function getUsers(?int $projectId, ?array $allowedProjects): array
+    {
+        return array_map(
+            fn ($row) => new UserData(
+                (int) $row->id,
+                (string) $row->username,
+                (string) $row->firstname,
+                (string) $row->lastname,
+                // Empty strings are the zp_user default for these, and an absent job title
+                // is more usefully null than '' to a consumer.
+                '' !== (string) $row->jobTitle ? (string) $row->jobTitle : null,
+                '' !== (string) $row->department ? (string) $row->department : null,
+                array_map('intval', explode(',', (string) $row->projectIds)),
+            ),
+            $this->repository->getUsers($projectId, $allowedProjects),
+        );
     }
 
     /**

@@ -137,6 +137,40 @@ class Api extends Controller
     }
 
     /**
+     * List the active users assigned to projects the API key may access.
+     *
+     * Exists so a client can resolve a person to the username the ticket and timesheet
+     * endpoints take: those identify a user by username with no way to discover one.
+     *
+     * An optional projectId narrows the list, and is grant-checked like every other
+     * project-scoped endpoint — without that check a key could name any project and learn
+     * who is on it.
+     */
+    public function users(array $input, ApiUser $apiUser): JsonResponse
+    {
+        $projectId = isset($input['projectId']) && '' !== $input['projectId']
+            ? (int) $input['projectId']
+            : null;
+
+        if (null !== $projectId) {
+            $error = $this->requireGrantedProject($projectId, $apiUser);
+            if (null !== $error) {
+                return $error;
+            }
+        }
+
+        $results = $this->databridgeService->getUsers($projectId, $apiUser->projects);
+
+        return new JsonResponse(
+            (new ResponseData(
+                null !== $projectId ? ['projectId' => $projectId] : [],
+                count($results),
+                $results,
+            ))->toArray(),
+        );
+    }
+
+    /**
      * Get a project's progress (percent complete and core's completion estimate).
      */
     public function projectProgress(int $projectId, ApiUser $apiUser): JsonResponse

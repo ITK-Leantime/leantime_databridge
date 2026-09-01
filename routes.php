@@ -54,6 +54,10 @@ Route::middleware([ApiKeyAuth::class.':read'])->group(function () use ($databrid
         fn (Api $controller, ApiUser $apiUser) => $controller->projects($apiUser)
     ));
 
+    Route::get('/api/databridge/users', $databridge(
+        fn (Api $controller, ApiUser $apiUser) => $controller->users(request()->query(), $apiUser)
+    ));
+
     Route::get('/api/databridge/projects/{id}/progress', $databridge(
         fn (Api $controller, ApiUser $apiUser, string $id) => $controller->projectProgress((int) $id, $apiUser)
     ))->whereNumber('id');

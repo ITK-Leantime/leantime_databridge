@@ -60,6 +60,41 @@ class DatabridgeRepository
     }
 
     /**
+     * List active users assigned to at least one of the allowed projects, each with the
+     * granted project IDs they are assigned to.
+     *
+     * Scoped through zp_relationuserproject rather than core's isUserAssignedToProject(),
+     * which also returns true for admins/owners (who reach every project) and for projects
+     * with psettings 'all'. That is the right rule for "may this user open this project",
+     * but the wrong one here: it would list every admin under every project and make the
+     * projects array useless for picking a username to pass to the ticket endpoints.
+     * Explicit assignment is what the caller actually wants to see.
+     *
+     * status is compared lowercased because zp_user stores both 'a' and 'A' (core does the
+     * same in Users::getUserByEmail). source 'api' rows are Leantime API-key service
+     * accounts, excluded here as core excludes them from its own user lists.
+     *
+     * @param  ?int  $projectId  Narrow to one project; null = every allowed project.
+     * @param  ?int[]  $allowedProjects  Granted project IDs; null = no restriction.
+     * @return array<int, object> Rows of user columns plus a comma-joined projectIds string.
+     */
+    public function getUsers(?int $projectId, ?array $allowedProjects): array
+    {
+        return $this->query()
+            ->from('zp_user as user')
+            ->join('zp_relationuserproject as rel', 'rel.userId', '=', 'user.id')
+            ->selectRaw('user.id, user.username, user.firstname, user.lastname, user.jobTitle, user.department, GROUP_CONCAT(DISTINCT rel.projectId ORDER BY rel.projectId ASC) as projectIds')
+            ->whereRaw('LOWER(user.status) = ?', ['a'])
+            ->where(fn ($query) => $query->whereNull('user.source')->orWhere('user.source', '!=', 'api'))
+            ->when(null !== $projectId, fn ($query) => $query->where('rel.projectId', '=', $projectId))
+            ->when(null !== $allowedProjects, fn ($query) => $query->whereIn('rel.projectId', $allowedProjects))
+            ->groupBy('user.id', 'user.username', 'user.firstname', 'user.lastname', 'user.jobTitle', 'user.department')
+            ->orderBy('user.id', 'ASC')
+            ->get()
+            ->toArray();
+    }
+
+    /**
      * Resolve a username (email) to the zp_user id, or null when unknown.
      */
     public function findUserIdByUsername(string $username): ?int

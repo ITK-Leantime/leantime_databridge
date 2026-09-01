@@ -80,6 +80,7 @@ same IP returns `429 Too Many Requests`. Both limits are configurable in `config
 | `GET`   | `/api/databridge/projects`               | `read`    | List granted projects                       |
 | `GET`   | `/api/databridge/projects/{id}/progress` | `read`    | Project completion percentage and dates     |
 | `GET`   | `/api/databridge/projects/{id}/statuses` | `read`    | The project's status labels and types       |
+| `GET`   | `/api/databridge/users`                  | `read`    | List users on granted projects              |
 | `GET`   | `/api/databridge/milestones`             | `read`    | List milestones                             |
 | `GET`   | `/api/databridge/timesheets`             | `read`    | List logged time entries                    |
 | `POST`  | `/api/databridge/timesheets`             | `write`   | Log time against a ticket                   |
@@ -386,6 +387,31 @@ never returned; download the file through Leantime itself if the bytes are neede
 - `GET /api/databridge/projects/{id}/statuses` — each status int with its label, `statusType`
   (`NEW`/`INPROGRESS`/`DONE`) and whether it appears as a kanban column. Use this to map a status
   without hardcoding ids, which differ per project.
+
+## Users (`GET /api/databridge/users`)
+
+| Parameter   | Type    | Required | Description                              |
+| ----------- | ------- | -------- | ---------------------------------------- |
+| `projectId` | integer | No       | Restrict to one project; must be granted |
+
+Lists active users assigned to the granted projects, so a client can resolve a person to the
+`username` that the ticket and timesheet endpoints take — those identify a user by username
+with no other way to discover one.
+
+Each row carries `id`, `username`, `firstname`, `lastname`, `jobTitle`, `department` and the
+`projects` the user is assigned to. No password, session or 2FA fields are exposed.
+
+Scoping notes:
+
+- `projects` lists only projects the **calling key** may access, so it never reveals that a
+  user also works on a project the key cannot see.
+- Membership means explicit assignment (`zp_relationuserproject`), not core's broader "may
+  open this project" rule — admins are not listed under every project they can reach.
+- Deactivated users and Leantime API service accounts (`source = api`) are excluded.
+
+```shell
+curl -H "x-api-key: $KEY" "https://leantime.example.com/api/databridge/users?projectId=42"
+```
 
 ## Milestones (`GET /api/databridge/milestones`)
 

@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- List the people on granted projects with `GET /users`, so a client can resolve a person to the
+  `username` the ticket and timesheet endpoints require. Scoped to the key's own grant: each row's
+  `projects` shows only granted projects, and naming an ungranted one returns `403`.
 - Update tickets with `PATCH /tickets/{id}`. Only the fields sent are written, so a caller can
   change one attribute without clearing the rest, and `status` is given as `NEW`/`INPROGRESS`/`DONE`
   rather than a per-project id.
