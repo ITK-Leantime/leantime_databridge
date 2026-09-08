@@ -312,7 +312,7 @@ class Databridge
      */
     private function getCarbonFromDatabaseValue(mixed $value): ?CarbonImmutable
     {
-        return null !== $value && $value !== '0000-00-00 00:00:00'
+        return null !== $value && '0000-00-00 00:00:00' !== $value
             ? CarbonImmutable::createFromFormat(self::DATE_FORMAT, $value, 'UTC')
             : null;
     }
@@ -392,7 +392,7 @@ class Databridge
     public function resolveNewStatusId(int $projectId): int
     {
         foreach ($this->ticketRepository->getStateLabels($projectId) as $key => $label) {
-            if (isset($label['statusType']) && $label['statusType'] === 'NEW') {
+            if (isset($label['statusType']) && 'NEW' === $label['statusType']) {
                 return (int) $key;
             }
         }
@@ -417,7 +417,7 @@ class Databridge
             }
 
             if ($value === $date->format($format)) {
-                return $format === 'Y-m-d' ? $date->startOfDay() : $date;
+                return 'Y-m-d' === $format ? $date->startOfDay() : $date;
             }
         }
 

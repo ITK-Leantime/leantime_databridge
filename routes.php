@@ -2,16 +2,22 @@
 
 use Illuminate\Support\Facades\Route;
 use Leantime\Plugins\Databridge\Controllers\Api;
+use Leantime\Plugins\Databridge\Exceptions\ResourceNotAccessibleException;
 use Leantime\Plugins\Databridge\Middleware\ApiKeyAuth;
 use Leantime\Plugins\Databridge\Model\ApiUser;
 use Leantime\Plugins\Databridge\Services\Databridge;
+use Symfony\Component\HttpFoundation\JsonResponse;
 
 /**
- * Build the API controller and hand it plus the authenticated ApiUser to $handler.
+ * Build the API controller and hand it plus the authenticated ApiUser to $handler, and turn
+ * a refused project or ticket into its response.
  *
  * Fails loud if a route was wired without the ApiKeyAuth middleware: without an
  * authenticated ApiUser there is no project grant, and serving would be fail-open. Every
  * route below goes through here so that check can never be forgotten on a new endpoint.
+ *
+ * The grant refusal is mapped here rather than in each endpoint for the same reason: a
+ * missed catch would turn a routine 403/404 into a 500.
  */
 $databridge = function (callable $handler): callable {
     return function (string ...$routeParams) use ($handler) {
@@ -24,7 +30,11 @@ $databridge = function (callable $handler): callable {
             throw new \RuntimeException('Databridge route reached without an authenticated ApiUser — ApiKeyAuth middleware missing on the route.');
         }
 
-        return $handler($controller, $apiUser, ...$routeParams);
+        try {
+            return $handler($controller, $apiUser, ...$routeParams);
+        } catch (ResourceNotAccessibleException $e) {
+            return new JsonResponse(['error' => $e->getMessage()], $e->statusCode);
+        }
     };
 };
 

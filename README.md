@@ -468,11 +468,21 @@ key on the `POST` endpoint).
 {"error": "Operation not permitted for this API key"}
 ```
 
-For `POST`, a valid `write` key whose `projects` grant does not cover the target project
-gets a distinct `403`:
+Naming a project the key's `projects` grant does not cover gets a distinct `403`, on every
+endpoint that takes a `projectId`:
 
 ```json
 {"error": "Project not granted for this API key."}
+```
+
+### Unknown ticket (404)
+
+Returned by the ticket-scoped endpoints when the ticket does not exist — and also when it
+exists in a project the key is not granted. Deliberately the same answer for both: a
+distinct `403` would tell an ungranted key which ticket IDs are real.
+
+```json
+{"error": "Unknown ticket."}
 ```
 
 ### Conflict (409)

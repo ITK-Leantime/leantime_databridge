@@ -6,6 +6,7 @@ use Carbon\CarbonImmutable;
 use Leantime\Core\Controller\Controller;
 use Leantime\Plugins\Databridge\Exceptions\DuplicateEntryException;
 use Leantime\Plugins\Databridge\Exceptions\InvalidInputException;
+use Leantime\Plugins\Databridge\Exceptions\ResourceNotAccessibleException;
 use Leantime\Plugins\Databridge\Model\ApiUser;
 use Leantime\Plugins\Databridge\Model\CreateCommentData;
 use Leantime\Plugins\Databridge\Model\CreateTicketData;
@@ -19,6 +20,12 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 
 /**
  * API Controller for the Databridge plugin.
+ *
+ * Endpoint methods return the response for anything the caller can act on (bad input,
+ * conflicts) and throw ResourceNotAccessibleException when a named project or ticket is
+ * outside the key's grant. That one is mapped to a response in routes.php, so the access
+ * decision cannot be mistaken for an ordinary result — or silently dropped by a caller
+ * that forgot to check a return value.
  */
 class Api extends Controller
 {
@@ -153,10 +160,7 @@ class Api extends Controller
             : null;
 
         if (null !== $projectId) {
-            $error = $this->requireGrantedProject($projectId, $apiUser);
-            if (null !== $error) {
-                return $error;
-            }
+            $this->assertProjectGranted($projectId, $apiUser);
         }
 
         $results = $this->databridgeService->getUsers($projectId, $apiUser->projects);
@@ -175,10 +179,7 @@ class Api extends Controller
      */
     public function projectProgress(int $projectId, ApiUser $apiUser): JsonResponse
     {
-        $error = $this->requireGrantedProject($projectId, $apiUser);
-        if (null !== $error) {
-            return $error;
-        }
+        $this->assertProjectGranted($projectId, $apiUser);
 
         $progress = $this->databridgeService->getProjectProgress($projectId);
 
@@ -193,10 +194,7 @@ class Api extends Controller
      */
     public function projectStatuses(int $projectId, ApiUser $apiUser): JsonResponse
     {
-        $error = $this->requireGrantedProject($projectId, $apiUser);
-        if (null !== $error) {
-            return $error;
-        }
+        $this->assertProjectGranted($projectId, $apiUser);
 
         $results = $this->databridgeService->getProjectStatuses($projectId);
 
@@ -210,13 +208,7 @@ class Api extends Controller
      */
     public function ticket(int $ticketId, ApiUser $apiUser): JsonResponse
     {
-        $ticket = $this->databridgeService->getTicket($ticketId);
-
-        // 404 before the grant check would confirm which ticket IDs exist to an ungranted
-        // key; both branches return the same 404 so nothing is leaked either way.
-        if (null === $ticket || ! $apiUser->canAccessProject($ticket->projectId)) {
-            return new JsonResponse(['error' => 'Unknown ticket.'], 404);
-        }
+        $ticket = $this->requireAccessibleTicket($ticketId, $apiUser);
 
         return new JsonResponse(
             (new ResponseData(['id' => $ticketId], 1, [$ticket]))->toArray(),
@@ -235,10 +227,7 @@ class Api extends Controller
         }
 
         if (null !== $projectId) {
-            $error = $this->requireGrantedProject($projectId, $apiUser);
-            if (null !== $error) {
-                return $error;
-            }
+            $this->assertProjectGranted($projectId, $apiUser);
         }
 
         $results = $this->databridgeService->getMilestones($projectId, $apiUser->projects);
@@ -269,17 +258,11 @@ class Api extends Controller
         }
 
         if (null !== $projectId) {
-            $error = $this->requireGrantedProject($projectId, $apiUser);
-            if (null !== $error) {
-                return $error;
-            }
+            $this->assertProjectGranted($projectId, $apiUser);
         }
 
         if (null !== $ticketId) {
-            $error = $this->requireGrantedTicket($ticketId, $apiUser);
-            if ($error instanceof JsonResponse) {
-                return $error;
-            }
+            $this->requireAccessibleTicket($ticketId, $apiUser);
         }
 
         $results = $this->databridgeService->getTimesheets($ticketId, $projectId, $apiUser->projects);
@@ -294,10 +277,7 @@ class Api extends Controller
      */
     public function ticketComments(int $ticketId, ApiUser $apiUser): JsonResponse
     {
-        $ticket = $this->requireGrantedTicket($ticketId, $apiUser);
-        if ($ticket instanceof JsonResponse) {
-            return $ticket;
-        }
+        $this->requireAccessibleTicket($ticketId, $apiUser);
 
         $results = $this->databridgeService->getTicketComments($ticketId);
 
@@ -313,10 +293,7 @@ class Api extends Controller
      */
     public function ticketFiles(int $ticketId, ApiUser $apiUser): JsonResponse
     {
-        $ticket = $this->requireGrantedTicket($ticketId, $apiUser);
-        if ($ticket instanceof JsonResponse) {
-            return $ticket;
-        }
+        $this->requireAccessibleTicket($ticketId, $apiUser);
 
         $results = $this->databridgeService->getTicketFiles($ticketId);
 
@@ -342,9 +319,7 @@ class Api extends Controller
             $projectId = PositiveInt::requiredField($input, 'projectId');
 
             // Grant check before existence: an ungranted key must not be able to probe project IDs.
-            if (! $apiUser->canAccessProject($projectId)) {
-                return new JsonResponse(['error' => 'Project not granted for this API key.'], 403);
-            }
+            $this->assertProjectGranted($projectId, $apiUser);
 
             $name = $this->validateName($input);
             $username = $this->validateUsername($input);
@@ -365,7 +340,7 @@ class Api extends Controller
         // State -1 is "Closed" in the project-settings UI (the projects board calls it
         // "archive" — same value). Core hides it from every listing, so a ticket created
         // there would be invisible.
-        if ((int) $project->state === -1) {
+        if (-1 === (int) $project->state) {
             return new JsonResponse(['error' => 'The given project is closed.'], 400);
         }
 
@@ -422,10 +397,7 @@ class Api extends Controller
             return new JsonResponse(['error' => 'Request body must be a non-empty JSON object.'], 400);
         }
 
-        $ticket = $this->requireGrantedTicket($ticketId, $apiUser);
-        if ($ticket instanceof JsonResponse) {
-            return $ticket;
-        }
+        $ticket = $this->requireAccessibleTicket($ticketId, $apiUser);
 
         try {
             $columns = $this->buildTicketUpdateColumns($input, $ticket->projectId);
@@ -462,10 +434,7 @@ class Api extends Controller
             return new JsonResponse(['error' => $e->getMessage()], 400);
         }
 
-        $ticket = $this->requireGrantedTicket($ticketId, $apiUser);
-        if ($ticket instanceof JsonResponse) {
-            return $ticket;
-        }
+        $ticket = $this->requireAccessibleTicket($ticketId, $apiUser);
 
         try {
             $username = $this->validateUsername($input);
@@ -520,10 +489,7 @@ class Api extends Controller
             return new JsonResponse(['error' => 'Request body must be a non-empty JSON object.'], 400);
         }
 
-        $ticket = $this->requireGrantedTicket($ticketId, $apiUser);
-        if ($ticket instanceof JsonResponse) {
-            return $ticket;
-        }
+        $ticket = $this->requireAccessibleTicket($ticketId, $apiUser);
 
         try {
             $username = $this->validateUsername($input);
@@ -549,31 +515,33 @@ class Api extends Controller
     }
 
     /**
-     * Guard a project-scoped endpoint: null when the project is granted, otherwise the 403
-     * to return. Deliberately does not check existence — a nonexistent granted ID yields
-     * empty results, exactly as an ungranted-but-real one is refused, so neither answer
-     * reveals which project IDs exist.
+     * Guard a project-scoped endpoint: returns when the project is granted, throws when it
+     * is not. Deliberately does not check existence — a nonexistent granted ID yields empty
+     * results, exactly as an ungranted-but-real one is refused, so neither answer reveals
+     * which project IDs exist.
+     *
+     * @throws ResourceNotAccessibleException
      */
-    private function requireGrantedProject(int $projectId, ApiUser $apiUser): ?JsonResponse
+    private function assertProjectGranted(int $projectId, ApiUser $apiUser): void
     {
-        return $apiUser->canAccessProject($projectId)
-            ? null
-            : new JsonResponse(['error' => 'Project not granted for this API key.'], 403);
+        if (! $apiUser->canAccessProject($projectId)) {
+            throw ResourceNotAccessibleException::projectNotGranted();
+        }
     }
 
     /**
-     * Guard a ticket-scoped endpoint: the ticket when it exists in a granted project,
-     * otherwise the JsonResponse to return.
+     * Guard a ticket-scoped endpoint and hand back the ticket, so callers that need its
+     * projectId do not look it up twice. Throws when the ticket does not exist or lives
+     * outside the grant — both cases answer with the same 404, see the exception.
      *
-     * Unknown and ungranted both give the same 404 (see ticket()): a distinct 403 would tell
-     * an ungranted key which ticket IDs are real.
+     * @throws ResourceNotAccessibleException
      */
-    private function requireGrantedTicket(int $ticketId, ApiUser $apiUser): TicketData|JsonResponse
+    private function requireAccessibleTicket(int $ticketId, ApiUser $apiUser): TicketData
     {
         $ticket = $this->databridgeService->getTicket($ticketId);
 
         if (null === $ticket || ! $apiUser->canAccessProject($ticket->projectId)) {
-            return new JsonResponse(['error' => 'Unknown ticket.'], 404);
+            throw ResourceNotAccessibleException::ticketNotAccessible();
         }
 
         return $ticket;
