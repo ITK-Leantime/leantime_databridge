@@ -23,9 +23,9 @@ use Symfony\Component\HttpFoundation\JsonResponse;
  *
  * Endpoint methods return the response for anything the caller can act on (bad input,
  * conflicts) and throw ResourceNotAccessibleException when a named project or ticket is
- * outside the key's grant. That one is mapped to a response in routes.php, so the access
- * decision cannot be mistaken for an ordinary result — or silently dropped by a caller
- * that forgot to check a return value.
+ * outside the key's grant. That one renders itself, so the access decision cannot be
+ * mistaken for an ordinary result — or silently dropped by a caller that forgot to check
+ * a return value.
  */
 class Api extends Controller
 {
@@ -525,7 +525,7 @@ class Api extends Controller
     private function assertProjectGranted(int $projectId, ApiUser $apiUser): void
     {
         if (! $apiUser->canAccessProject($projectId)) {
-            throw ResourceNotAccessibleException::projectNotGranted();
+            throw ResourceNotAccessibleException::projectNotGranted($projectId, $apiUser->name);
         }
     }
 
