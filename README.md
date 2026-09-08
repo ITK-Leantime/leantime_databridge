@@ -68,12 +68,34 @@ same IP returns `429 Too Many Requests`. Both limits are configurable in `config
 
 ## Endpoints
 
-| Method | Path | Operation | Description |
-|--------|------|-----------|--------------------------------|
-| `GET`  | `/api/databridge/tickets` | `read`  | List tickets for a username |
-| `POST` | `/api/databridge/tickets` | `write` | Create a ticket for a username |
+| Method  | Path                                     | Operation | Description                                 |
+| ------- | ---------------------------------------- | --------- | ------------------------------------------- |
+| `GET`   | `/api/databridge/tickets`                | `read`    | List tickets for a username                 |
+| `POST`  | `/api/databridge/tickets`                | `write`   | Create a ticket for a username              |
+| `GET`   | `/api/databridge/tickets/{id}`           | `read`    | Get a single ticket                         |
+| `PATCH` | `/api/databridge/tickets/{id}`           | `write`   | Update selected fields of a ticket          |
+| `GET`   | `/api/databridge/tickets/{id}/comments`  | `read`    | List a ticket's comments                    |
+| `POST`  | `/api/databridge/tickets/{id}/comments`  | `write`   | Add a comment to a ticket                   |
+| `GET`   | `/api/databridge/tickets/{id}/files`     | `read`    | List a ticket's attachments (metadata only) |
+| `GET`   | `/api/databridge/projects`               | `read`    | List granted projects                       |
+| `GET`   | `/api/databridge/projects/{id}/progress` | `read`    | Project completion percentage and dates     |
+| `GET`   | `/api/databridge/projects/{id}/statuses` | `read`    | The project's status labels and types       |
+| `GET`   | `/api/databridge/users`                  | `read`    | List users on granted projects              |
+| `GET`   | `/api/databridge/milestones`             | `read`    | List milestones                             |
+| `GET`   | `/api/databridge/timesheets`             | `read`    | List logged time entries                    |
+| `POST`  | `/api/databridge/timesheets`             | `write`   | Log time against a ticket                   |
 
-The `401` / `403` (operation) / `429` responses in [Error responses](#error-responses) apply to both.
+The `401` / `403` (operation) / `429` responses in [Error responses](#error-responses) apply to all of them.
+
+Every endpoint is scoped to the calling key's granted projects: a request naming a project
+outside the grant returns `403`, and list endpoints simply omit tickets from projects the key
+cannot see. The project is always taken from the key's grants, never from a request parameter
+alone.
+
+> **No events or notifications fire on write endpoints.** Like `POST /tickets`, the write paths
+> insert and update directly rather than going through core's services, which require a
+> logged-in session user. Team members receive no email when an API key changes a ticket, logs
+> time, or adds a comment. Each write is logged server-side with the key's name instead.
 
 ## Listing tickets (`GET /api/databridge/tickets`)
 
@@ -285,9 +307,124 @@ The created ticket is returned in the same shape as a list result:
 }
 ```
 
+## Updating a ticket (`PATCH /api/databridge/tickets/{id}`)
+
+Only the fields present in the body are written; everything else is left untouched. Omitting a
+field never clears it, so a caller can change one attribute without reading the ticket first.
+`modified` is always bumped.
+
+### Body fields
+
+| Field            | Type            | Description                                                            |
+| ---------------- | --------------- | ---------------------------------------------------------------------- |
+| `name`           | string          | Ticket headline (max 255 characters)                                   |
+| `description`    | string          | Free text                                                              |
+| `status`         | string          | `NEW`, `INPROGRESS` or `DONE` (case-insensitive), resolved per project |
+| `dueDate`        | string          | `Y-m-d` or `Y-m-d H:i:s`, interpreted as UTC                           |
+| `plannedHours`   | number          | Estimate; `null` clears it                                             |
+| `remainingHours` | number          | Remaining work; `null` clears it                                       |
+| `tags`           | array of string | Replaces the whole tag list                                            |
+| `milestoneId`    | integer         | Must be a milestone in the same project                                |
+| `assignee`       | string          | Username (email) of the new assignee                                   |
+
+Status is given as a **type**, not an integer, because status ids are configured per project and
+can be relabelled — `DONE` resolves to whichever id that project uses.
+
+```shell
+curl -k -X PATCH "https://leantime.example.com/api/databridge/tickets/42" \
+  -H "x-api-key: your-key" \
+  -H "Content-Type: application/json" \
+  -d '{"status":"done","plannedHours":6}'
+```
+
+Responds `200` with the updated ticket in the same shape as `GET /tickets/{id}`.
+
+## Logging time (`POST /api/databridge/timesheets`)
+
+| Field         | Type    | Required | Description                                         |
+| ------------- | ------- | -------- | --------------------------------------------------- |
+| `ticketId`    | integer | Yes      | Ticket to log against; must be in a granted project |
+| `hours`       | number  | Yes      | Hours worked                                        |
+| `workDate`    | string  | Yes      | `Y-m-d` or `Y-m-d H:i:s`, interpreted as UTC        |
+| `username`    | string  | Yes      | Who the time belongs to (there is no session user)  |
+| `description` | string  | No       | Free text                                           |
+| `kind`        | string  | No       | Timesheet kind; defaults to Leantime's general kind |
+
+```shell
+curl -k -X POST "https://leantime.example.com/api/databridge/timesheets" \
+  -H "x-api-key: your-key" \
+  -H "Content-Type: application/json" \
+  -d '{"ticketId":42,"hours":2.5,"workDate":"2026-08-11","username":"user@example.com"}'
+```
+
+Responds `201` with the created entry, or `409` when time is already logged for that
+person, ticket, date and kind — Leantime enforces `UNIQUE (userId, ticketId, workDate, kind)`.
+
+That makes this endpoint **safe to retry**: a client whose request timed out cannot tell
+whether the write landed, and repeating it can never book the same work twice. To add hours to
+a day that already has an entry, read it first and update rather than logging a second one.
+
+## Adding a comment (`POST /api/databridge/tickets/{id}/comments`)
+
+| Field      | Type   | Required | Description                               |
+| ---------- | ------ | -------- | ----------------------------------------- |
+| `text`     | string | Yes      | Comment body                              |
+| `username` | string | Yes      | Comment author (there is no session user) |
+
+Responds `201` with the created comment. Comments are returned oldest-first by
+`GET /api/databridge/tickets/{id}/comments`.
+
+## Attachments (`GET /api/databridge/tickets/{id}/files`)
+
+Returns **metadata only** — id, filename, extension, uploader and upload date. File contents are
+never returned; download the file through Leantime itself if the bytes are needed.
+
+## Project endpoints
+
+- `GET /api/databridge/projects` — the projects the key may access.
+- `GET /api/databridge/projects/{id}/progress` — completion `percent` plus estimated and planned
+  completion dates. Core renders the estimate as HTML for the UI; it is reduced to plain text here.
+- `GET /api/databridge/projects/{id}/statuses` — each status int with its label, `statusType`
+  (`NEW`/`INPROGRESS`/`DONE`) and whether it appears as a kanban column. Use this to map a status
+  without hardcoding ids, which differ per project.
+
+## Users (`GET /api/databridge/users`)
+
+| Parameter   | Type    | Required | Description                              |
+| ----------- | ------- | -------- | ---------------------------------------- |
+| `projectId` | integer | No       | Restrict to one project; must be granted |
+
+Lists active users assigned to the granted projects, so a client can resolve a person to the
+`username` that the ticket and timesheet endpoints take — those identify a user by username
+with no other way to discover one.
+
+Each row carries `id`, `username`, `firstname`, `lastname`, `jobTitle`, `department` and the
+`projects` the user is assigned to. No password, session or 2FA fields are exposed.
+
+Scoping notes:
+
+- `projects` lists only projects the **calling key** may access, so it never reveals that a
+  user also works on a project the key cannot see.
+- Membership means explicit assignment (`zp_relationuserproject`), not core's broader "may
+  open this project" rule — admins are not listed under every project they can reach.
+- Deactivated users and Leantime API service accounts (`source = api`) are excluded.
+
+```shell
+curl -H "x-api-key: $KEY" "https://leantime.example.com/api/databridge/users?projectId=42"
+```
+
+## Milestones (`GET /api/databridge/milestones`)
+
+| Parameter   | Type    | Required | Description                              |
+| ----------- | ------- | -------- | ---------------------------------------- |
+| `projectId` | integer | No       | Restrict to one project; must be granted |
+
+Milestones are stored as tickets of type `milestone`; this endpoint returns them with their
+project, status type and due date.
+
 ## Error responses
 
-Shared across both endpoints unless noted.
+Shared across all endpoints unless noted.
 
 ### Bad request (400)
 
@@ -331,11 +468,30 @@ key on the `POST` endpoint).
 {"error": "Operation not permitted for this API key"}
 ```
 
-For `POST`, a valid `write` key whose `projects` grant does not cover the target project
-gets a distinct `403`:
+Naming a project the key's `projects` grant does not cover gets a distinct `403`, on every
+endpoint that takes a `projectId`:
 
 ```json
 {"error": "Project not granted for this API key."}
+```
+
+### Unknown ticket (404)
+
+Returned by the ticket-scoped endpoints when the ticket does not exist — and also when it
+exists in a project the key is not granted. Deliberately the same answer for both: a
+distinct `403` would tell an ungranted key which ticket IDs are real.
+
+```json
+{"error": "Unknown ticket."}
+```
+
+### Conflict (409)
+
+The request is well-formed but the row already exists. Currently only
+`POST /timesheets`, which Leantime constrains to one entry per person, ticket, date and kind:
+
+```json
+{"error": "Time is already logged for this person, todo, date and kind. Read the existing entries before retrying."}
 ```
 
 ### Too many failed attempts (429)
