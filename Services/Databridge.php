@@ -49,18 +49,31 @@ class Databridge
      */
     private const PROJECT_STATE_CLOSED = -1;
 
+    /**
+     * @param  DatabridgeRepository $repository        Plugin-own data access.
+     * @param  TicketRepository     $ticketRepository  Core repository, used for status labels.
+     * @param  ProjectRepository    $projectRepository Core repository, used for project access checks.
+     * @param  ProjectService       $projectService    Core service, used for project progress.
+     */
     public function __construct(
         private readonly DatabridgeRepository $repository,
         private readonly TicketRepository $ticketRepository,
         private readonly ProjectRepository $projectRepository,
         private readonly ProjectService $projectService,
-    ) {}
+    ) {
+    }
 
     /**
      * Get tickets for a given username with optional date and status filtering, scoped
      * to the API user's granted projects.
      *
-     * @param  ?int[]  $allowedProjects  Granted project IDs; null = no restriction.
+     * @param  string  $username        Username (email) whose tickets to fetch.
+     * @param  int     $sinceId         Keyset pagination: only tickets with id >= sinceId.
+     * @param  int     $limit           Maximum number of tickets to return.
+     * @param  ?string $dateFrom        Optional lower bound (inclusive) on the due date.
+     * @param  ?string $dateTo          Optional upper bound (inclusive) on the due date.
+     * @param  ?string $status          Optional status type filter (NEW/INPROGRESS/DONE).
+     * @param  ?int[]  $allowedProjects Granted project IDs; null = no restriction.
      * @return TicketData[]
      */
     public function getTickets(string $username, int $sinceId, int $limit, ?string $dateFrom, ?string $dateTo, ?string $status, ?array $allowedProjects): array
@@ -84,6 +97,8 @@ class Databridge
      * Returns the ticket regardless of grant: the caller must check the project grant on the
      * returned projectId, because refusing here could not distinguish "not granted" from
      * "does not exist" and would leak which ticket IDs are real.
+     *
+     * @return ?TicketData
      */
     public function getTicket(int $ticketId): ?TicketData
     {
@@ -95,8 +110,8 @@ class Databridge
     /**
      * Get the active users assigned to the projects the API user may access.
      *
-     * @param  ?int  $projectId  Narrow to one project; null = every allowed project.
-     * @param  ?int[]  $allowedProjects  Granted project IDs; null = no restriction.
+     * @param  ?int   $projectId       Narrow to one project; null = every allowed project.
+     * @param  ?int[] $allowedProjects Granted project IDs; null = no restriction.
      * @return UserData[]
      */
     public function getUsers(?int $projectId, ?array $allowedProjects): array
@@ -120,7 +135,7 @@ class Databridge
     /**
      * Get the projects the API user may access.
      *
-     * @param  ?int[]  $allowedProjects  Granted project IDs; null = no restriction.
+     * @param  ?int[] $allowedProjects Granted project IDs; null = no restriction.
      * @return ProjectData[]
      */
     public function getProjects(?array $allowedProjects): array
@@ -142,6 +157,8 @@ class Databridge
      * Core embeds an HTML button in estimatedCompletionDate when it has too little data (or
      * when the project is complete), so tags are stripped and entities decoded — an API
      * consumer needs the sentence, not core's markup.
+     *
+     * @return ProjectProgressData
      */
     public function getProjectProgress(int $projectId): ProjectProgressData
     {
@@ -181,7 +198,8 @@ class Databridge
      * Get milestones, optionally narrowed to one project and always scoped to the API user's
      * granted projects.
      *
-     * @param  ?int[]  $allowedProjects  Granted project IDs; null = no restriction.
+     * @param  ?int   $projectId       Narrow to one project; null = every allowed project.
+     * @param  ?int[] $allowedProjects Granted project IDs; null = no restriction.
      * @return MilestoneData[]
      */
     public function getMilestones(?int $projectId, ?array $allowedProjects): array
@@ -203,7 +221,9 @@ class Databridge
      * Get logged time entries for a ticket or a project, scoped to the API user's granted
      * projects.
      *
-     * @param  ?int[]  $allowedProjects  Granted project IDs; null = no restriction.
+     * @param  ?int   $ticketId        Narrow to one ticket; null = no ticket filter.
+     * @param  ?int   $projectId       Narrow to one project; null = no project filter.
+     * @param  ?int[] $allowedProjects Granted project IDs; null = no restriction.
      * @return TimesheetData[]
      */
     public function getTimesheets(?int $ticketId, ?int $projectId, ?array $allowedProjects): array
@@ -253,6 +273,8 @@ class Databridge
 
     /**
      * Map a ticket row (shape of getTicketsByUsername/findTicketRowById) to a TicketData model.
+     *
+     * @return TicketData
      */
     private function mapRowToTicketData(object $value): TicketData
     {
@@ -276,6 +298,8 @@ class Databridge
 
     /**
      * Map a time-entry row (shape of getTimesheets/findTimesheetRowById) to a TimesheetData model.
+     *
+     * @return TimesheetData
      */
     private function mapRowToTimesheetData(object $row): TimesheetData
     {
@@ -294,6 +318,8 @@ class Databridge
 
     /**
      * Map a comment row (shape of getTicketComments/findCommentRowById) to a CommentData model.
+     *
+     * @return CommentData
      */
     private function mapRowToCommentData(object $row): CommentData
     {
@@ -309,6 +335,8 @@ class Databridge
 
     /**
      * Parse a database datetime string to CarbonImmutable.
+     *
+     * @return ?CarbonImmutable
      */
     private function getCarbonFromDatabaseValue(mixed $value): ?CarbonImmutable
     {
@@ -319,6 +347,8 @@ class Databridge
 
     /**
      * Extract milestone ID, treating 0 as null.
+     *
+     * @return ?int
      */
     private function getMilestoneId(mixed $value): ?int
     {
@@ -329,7 +359,9 @@ class Databridge
      * Resolve a statusType string (e.g. "DONE") to all matching status int keys
      * across the granted projects the user has tickets in.
      *
-     * @param  ?int[]  $allowedProjects  Granted project IDs; null = no restriction.
+     * @param  string $username        Username (email) whose projects to resolve against.
+     * @param  string $statusType      Status type to resolve (NEW/INPROGRESS/DONE).
+     * @param  ?int[] $allowedProjects Granted project IDs; null = no restriction.
      * @return int[]
      */
     private function resolveStatusIds(string $username, string $statusType, ?array $allowedProjects): array
@@ -351,6 +383,8 @@ class Databridge
 
     /**
      * Fetch a project's id and state, or null when it does not exist.
+     *
+     * @return ?object
      */
     public function findProject(int $projectId): ?object
     {
@@ -359,6 +393,8 @@ class Databridge
 
     /**
      * Resolve a username (email) to the zp_user id, or null when unknown.
+     *
+     * @return ?int
      */
     public function findUserIdByUsername(string $username): ?int
     {
@@ -370,6 +406,8 @@ class Databridge
      * admins/owners always, everyone for "all" projects, client users for client
      * projects, and directly assigned users otherwise. Takes explicit ids — no
      * session dependency, safe in the API-key context.
+     *
+     * @return bool
      */
     public function isUserAssignedToProject(int $userId, int $projectId): bool
     {
@@ -378,6 +416,8 @@ class Databridge
 
     /**
      * Whether a milestone with the given ID exists in the given project.
+     *
+     * @return bool
      */
     public function milestoneExistsInProject(int $milestoneId, int $projectId): bool
     {
@@ -388,6 +428,8 @@ class Databridge
      * Resolve the status int a new ticket should get: the project's first NEW-typed
      * status, falling back to core's seed id (3) when the project has none configured —
      * mirrors core's own create behavior.
+     *
+     * @return int
      */
     public function resolveNewStatusId(int $projectId): int
     {
@@ -406,6 +448,8 @@ class Databridge
      * Bare dates get a 00:00:00 time. A round-trip format check rejects rollover dates
      * (e.g. 2026-02-30) and zero dates (0000-00-00), which createFromFormat would silently
      * normalize instead of failing.
+     *
+     * @return ?CarbonImmutable
      */
     public function parseDueDate(string $value): ?CarbonImmutable
     {
@@ -435,6 +479,8 @@ class Databridge
      * $apiUser is required and the grant is re-asserted here (defense in depth): the
      * controller returns the 403, but this layer must never trust that a caller ran the
      * grant check, so a missing check fails loud rather than writing to a foreign project.
+     *
+     * @return TicketData
      */
     public function createTicket(ApiUser $apiUser, CreateTicketData $data): TicketData
     {
@@ -469,6 +515,8 @@ class Databridge
      * Picks the first match in the scheme's sort order, which is how a user reading the
      * board would name the type: for INPROGRESS that is the earliest in-progress column,
      * not an arbitrary one.
+     *
+     * @return ?int
      */
     public function resolveStatusIdForProject(int $projectId, string $statusType): ?int
     {
@@ -490,6 +538,8 @@ class Databridge
      *
      * The grant is re-asserted here (defense in depth): the controller returns the 403, but
      * this layer must never trust that a caller ran the check.
+     *
+     * @return TicketData
      */
     public function updateTicket(ApiUser $apiUser, UpdateTicketData $data): TicketData
     {
@@ -522,6 +572,8 @@ class Databridge
      *
      * Direct query-builder write and a re-asserted grant, for the same reasons as
      * createTicket(). No core events and no notifications fire — by design.
+     *
+     * @return TimesheetData
      */
     public function createTimesheet(ApiUser $apiUser, CreateTimesheetData $data): TimesheetData
     {
@@ -571,6 +623,8 @@ class Databridge
      * Direct query-builder write and a re-asserted grant, for the same reasons as
      * createTicket(): core's Comments::addComment() hardcodes session('userdata.id'), which
      * is null in an API-key request. No core events and no notifications fire — by design.
+     *
+     * @return CommentData
      */
     public function createTicketComment(ApiUser $apiUser, CreateCommentData $data): CommentData
     {

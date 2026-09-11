@@ -10,19 +10,22 @@ namespace Leantime\Plugins\Databridge\Model;
 readonly class ApiUser
 {
     /**
-     * @param  string  $name  Display name used in logs.
-     * @param  Operation[]  $operations  Granted operations.
-     * @param  ?int[]  $projects  Granted project IDs; null = all projects (only reachable
-     *                            via the explicit "all" sentinel in the YAML file).
+     * @param  string      $name       Display name used in logs.
+     * @param  Operation[] $operations Granted operations.
+     * @param  ?int[]      $projects   Granted project IDs; null = all projects (only reachable
+     *                                 via the explicit "all" sentinel in the YAML file).
      */
     public function __construct(
         public string $name,
         public array $operations,
         public ?array $projects,
-    ) {}
+    ) {
+    }
 
     /**
      * Whether this user is granted the given operation.
+     *
+     * @return bool
      */
     public function can(Operation $operation): bool
     {
@@ -31,6 +34,8 @@ readonly class ApiUser
 
     /**
      * Whether this user may access the given project.
+     *
+     * @return bool
      */
     public function canAccessProject(int $projectId): bool
     {

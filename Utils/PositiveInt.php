@@ -15,6 +15,8 @@ final class PositiveInt
      * Accepts ints and integer strings (JSON numbers, quoted YAML values) via
      * FILTER_VALIDATE_INT; rejects zero, negatives, floats, leading-zero strings,
      * and booleans (which filter_var would otherwise coerce to 0/1).
+     *
+     * @return ?int
      */
     public static function parse(mixed $value): ?int
     {
@@ -29,6 +31,8 @@ final class PositiveInt
 
     /**
      * Parse a required positive-integer field from a request input array.
+     *
+     * @return int
      *
      * @throws InvalidInputException When the field is missing or not a positive integer.
      */
@@ -45,6 +49,8 @@ final class PositiveInt
 
     /**
      * Parse an optional positive-integer field from a request input array; null when absent.
+     *
+     * @return ?int
      *
      * @throws InvalidInputException When the field is present but not a positive integer.
      */

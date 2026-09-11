@@ -1,6 +1,8 @@
 # Databridge Plugin
 
-A Leantime plugin that exposes API endpoints for retrieving tickets filtered by username (email) — with optional date range and status filtering — and for creating tickets assigned to a user. Designed for consumption by remote AI agents and external integrations.
+A Leantime plugin that exposes API endpoints for retrieving tickets filtered by username (email) — with optional
+date range and status filtering — and for creating tickets assigned to a user. Designed for consumption by remote
+AI agents and external integrations.
 
 ## Installation
 
@@ -48,8 +50,8 @@ users:
 
 ### Operations
 
-| Operation | Used by |
-|-----------|-----------------------------------------|
+| Operation | Used by                                 |
+| --------- | --------------------------------------- |
 | `read`    | `GET /api/databridge/tickets`           |
 | `write`   | `POST /api/databridge/tickets`          |
 | `delete`  | Reserved for future endpoints           |
@@ -101,18 +103,19 @@ alone.
 
 ### Parameters
 
-| Parameter  | Type   | Required | Default | Description                                      |
-|------------|--------|----------|---------|--------------------------------------------------|
-| `username` | string | Yes      |         | Email/username to filter tickets by               |
-| `dateFrom` | string | No       |         | ISO date (`Y-m-d`), filters `dateToFinish >=`     |
-| `dateTo`   | string | No       |         | ISO date (`Y-m-d`), filters `dateToFinish <=`     |
-| `status`   | string | No       |         | Status type: `NEW`, `INPROGRESS`, `DONE` (case-insensitive) |
+| Parameter  | Type   | Required | Default | Description                                                      |
+| ---------- | ------ | -------- | ------- | ---------------------------------------------------------------- |
+| `username` | string | Yes      |         | Email/username to filter tickets by                              |
+| `dateFrom` | string | No       |         | ISO date (`Y-m-d`), filters `dateToFinish >=`                    |
+| `dateTo`   | string | No       |         | ISO date (`Y-m-d`), filters `dateToFinish <=`                    |
+| `status`   | string | No       |         | Status type: `NEW`, `INPROGRESS`, `DONE` (case-insensitive)      |
 | `sinceId`  | int    | No       | 0       | Pagination cursor: minimum ticket ID (`id >=`), not a row offset |
-| `limit`    | int    | No       | 100     | Maximum number of results                         |
+| `limit`    | int    | No       | 100     | Maximum number of results                                        |
 
 ### Ticket matching
 
 A ticket is returned if the user is either:
+
 - The **assigned editor** of the ticket, or
 - A **collaborator** on the ticket
 
@@ -220,7 +223,7 @@ Creates a ticket in a granted project, assigned to the given username. Requires 
 ### Body fields
 
 | Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
+| ----- | ---- | -------- | ------- | ----------- |
 | `projectId` | int | Yes | | Target project; must be covered by the key's `projects` grant |
 | `username` | string | Yes | | Assignee email; must have access to the target project; recorded as both the assignee and the creator |
 | `name` | string | Yes | | Ticket headline (max 255 characters) |

@@ -25,6 +25,8 @@ class ApiUsers
     /**
      * Resolve a presented API key to a user.
      *
+     * @return ApiUser
+     *
      * @throws InvalidApiKeyException When the key is missing, empty, or unknown.
      */
     public function authenticate(?string $presentedKey): ApiUser
@@ -48,6 +50,8 @@ class ApiUsers
 
     /**
      * Verify that the user holds the required operation grant.
+     *
+     * @return void
      *
      * @throws OperationNotGrantedException
      */
@@ -75,7 +79,7 @@ class ApiUsers
     {
         // env() rather than config(): plugins cannot extend Leantime's custom config map
         // (laravelConfig.php), and Leantime's bootstrap does not use Laravel config caching.
-        $path = env('LEAN_DATABRIDGE_AUTH_FILE') ?: APP_ROOT.'/config/databridge_auth.yaml';
+        $path = env('LEAN_DATABRIDGE_AUTH_FILE') ?: APP_ROOT . '/config/databridge_auth.yaml';
 
         if (! is_file($path) || ! is_readable($path)) {
             Log::error('Databridge auth: config file missing or unreadable — all requests will be rejected', ['path' => $path]);

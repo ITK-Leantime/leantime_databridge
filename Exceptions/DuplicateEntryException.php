@@ -13,4 +13,6 @@ namespace Leantime\Plugins\Databridge\Exceptions;
  *
  * The message is written for the API consumer and is safe to return verbatim.
  */
-class DuplicateEntryException extends \Exception {}
+class DuplicateEntryException extends \Exception
+{
+}
