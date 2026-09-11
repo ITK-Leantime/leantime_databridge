@@ -5,7 +5,7 @@ parameters:
 
     excludePaths:
         - vendor
-        - node_modules
+        - node_modules (?)
 
     ignoreErrors:
         - '#Constant (APP_ROOT|BASE_URL) not found.#'

@@ -8,9 +8,9 @@ namespace Leantime\Plugins\Databridge\Model;
 readonly class ResponseData
 {
     /**
-     * @param  array $parameters   Echo of the request parameters the response answers.
-     * @param  int   $resultsCount Number of entries in $results.
-     * @param  array $results      Result payload.
+     * @param  array<string, mixed> $parameters   Echo of the request parameters the response answers.
+     * @param  int                  $resultsCount Number of entries in $results.
+     * @param  array<int, object>   $results      Result payload.
      */
     public function __construct(
         public array $parameters,

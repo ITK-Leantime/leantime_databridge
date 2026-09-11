@@ -32,6 +32,8 @@ final class PositiveInt
     /**
      * Parse a required positive-integer field from a request input array.
      *
+     * @param  array<string, mixed> $input Request input array.
+     * @param  string               $field Name of the field to read.
      * @return int
      *
      * @throws InvalidInputException When the field is missing or not a positive integer.
@@ -50,6 +52,8 @@ final class PositiveInt
     /**
      * Parse an optional positive-integer field from a request input array; null when absent.
      *
+     * @param  array<string, mixed> $input Request input array.
+     * @param  string               $field Name of the field to read.
      * @return ?int
      *
      * @throws InvalidInputException When the field is present but not a positive integer.

@@ -137,6 +137,8 @@ class ApiUsers
      * immediately and the problem shows up in the log, instead of a grant being silently
      * dropped).
      *
+     * @param  array<string, mixed> $userData One user entry from the YAML file.
+     * @param  string               $index    List index of the entry, for log context.
      * @return ?array{key: string, user: ApiUser}
      */
     private function validateUser(array $userData, string $index): ?array

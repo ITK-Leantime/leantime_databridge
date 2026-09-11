@@ -94,6 +94,7 @@ class Api extends Controller
      * $apiUser is deliberately non-nullable: a route wired without ApiKeyAuth fails
      * loudly instead of silently serving all projects.
      *
+     * @param  array<string, mixed> $input Request query parameters.
      * @return JsonResponse
      */
     public function tickets(array $input, ApiUser $apiUser): JsonResponse
@@ -159,6 +160,7 @@ class Api extends Controller
      * project-scoped endpoint — without that check a key could name any project and learn
      * who is on it.
      *
+     * @param  array<string, mixed> $input Request query parameters.
      * @return JsonResponse
      */
     public function users(array $input, ApiUser $apiUser): JsonResponse
@@ -232,6 +234,7 @@ class Api extends Controller
     /**
      * List milestones in the granted projects, optionally narrowed to one project.
      *
+     * @param  array<string, mixed> $input Request query parameters.
      * @return JsonResponse
      */
     public function milestones(array $input, ApiUser $apiUser): JsonResponse
@@ -260,6 +263,7 @@ class Api extends Controller
      * time entry in every granted project, which is never what a caller wants and is
      * expensive on a real installation.
      *
+     * @param  array<string, mixed> $input Request query parameters.
      * @return JsonResponse
      */
     public function timesheets(array $input, ApiUser $apiUser): JsonResponse
@@ -331,6 +335,7 @@ class Api extends Controller
      * BEFORE any DB-dependent check so an ungranted key cannot probe which project IDs
      * exist; the service re-asserts the grant fail-loud.
      *
+     * @param  array<string, mixed> $input Decoded JSON request body.
      * @return JsonResponse
      */
     public function createTicket(array $input, ApiUser $apiUser): JsonResponse
@@ -415,6 +420,8 @@ class Api extends Controller
      * Apply a partial update to a ticket. Only the fields present in the body are written;
      * absent fields keep their value and are never nulled.
      *
+     * @param  int                  $ticketId Ticket to update.
+     * @param  array<string, mixed> $input    Decoded JSON request body.
      * @return JsonResponse
      */
     public function updateTicket(int $ticketId, array $input, ApiUser $apiUser): JsonResponse
@@ -448,6 +455,7 @@ class Api extends Controller
     /**
      * Log time on a ticket in a granted project.
      *
+     * @param  array<string, mixed> $input Decoded JSON request body.
      * @return JsonResponse
      */
     public function createTimesheet(array $input, ApiUser $apiUser): JsonResponse
@@ -511,6 +519,8 @@ class Api extends Controller
      * The author comes from the "username" field: an API-key request has no session user, so
      * without it every comment would be attributed to nobody.
      *
+     * @param  int                  $ticketId Ticket to comment on.
+     * @param  array<string, mixed> $input    Decoded JSON request body.
      * @return JsonResponse
      */
     public function createTicketComment(int $ticketId, array $input, ApiUser $apiUser): JsonResponse
@@ -589,6 +599,7 @@ class Api extends Controller
      * Unknown keys are rejected rather than ignored, so a typo ("titel") fails loudly
      * instead of silently doing nothing.
      *
+     * @param  array<string, mixed> $input Decoded JSON request body.
      * @return array<string, mixed>
      *
      * @throws InvalidInputException
@@ -653,6 +664,7 @@ class Api extends Controller
     /**
      * Validate the optional "remainingHours" field, allowing an explicit null to clear it.
      *
+     * @param  array<string, mixed> $input Decoded JSON request body.
      * @return ?float
      *
      * @throws InvalidInputException
@@ -677,6 +689,7 @@ class Api extends Controller
      * Validate the "milestoneId" field of a PATCH, allowing an explicit null to detach the
      * ticket from its milestone.
      *
+     * @param  array<string, mixed> $input Decoded JSON request body.
      * @return ?int
      *
      * @throws InvalidInputException
@@ -702,6 +715,7 @@ class Api extends Controller
      * Resolve the "assignee" username to a zp_user id, rejecting users who cannot access the
      * ticket's project — a ticket assigned to them would be invisible to them.
      *
+     * @param  array<string, mixed> $input Decoded JSON request body.
      * @return int
      *
      * @throws InvalidInputException
@@ -732,6 +746,7 @@ class Api extends Controller
      * project. Status ints are per-project and their labels are user-editable, so the API
      * takes the stable type and never a raw int.
      *
+     * @param  array<string, mixed> $input Decoded JSON request body.
      * @return int
      *
      * @throws InvalidInputException
@@ -758,6 +773,7 @@ class Api extends Controller
      *
      * Zero is rejected: an entry of no hours records nothing and only pollutes reports.
      *
+     * @param  array<string, mixed> $input Decoded JSON request body.
      * @return float
      *
      * @throws InvalidInputException
@@ -777,6 +793,7 @@ class Api extends Controller
      * Validate and parse the required "workDate" field, reusing the dueDate parser: the
      * accepted formats and the UTC assumption are the same.
      *
+     * @param  array<string, mixed> $input Decoded JSON request body.
      * @return CarbonImmutable
      *
      * @throws InvalidInputException
@@ -795,10 +812,10 @@ class Api extends Controller
     /**
      * Validate a free-text TEXT-column field.
      *
-     * @param  array  $input    Request body.
-     * @param  string $field    Name of the field to validate.
-     * @param  bool   $required When true an absent or blank value is rejected; when false an
-     *                          absent value yields null.
+     * @param  array<string, mixed> $input    Decoded JSON request body.
+     * @param  string               $field    Name of the field to validate.
+     * @param  bool                 $required When true an absent or blank value is rejected; when false an
+     *                                        absent value yields null.
      * @return ?string
      *
      * @throws InvalidInputException
@@ -832,6 +849,7 @@ class Api extends Controller
     /**
      * Validate the optional "kind" of a time entry, defaulting to core's GENERAL_BILLABLE.
      *
+     * @param  array<string, mixed> $input Decoded JSON request body.
      * @return string
      *
      * @throws InvalidInputException
@@ -854,6 +872,7 @@ class Api extends Controller
     /**
      * Validate and normalize the required "name" field (the ticket headline).
      *
+     * @param  array<string, mixed> $input Decoded JSON request body.
      * @return string
      *
      * @throws InvalidInputException
@@ -876,6 +895,7 @@ class Api extends Controller
     /**
      * Validate and normalize the required "username" field (the assignee email).
      *
+     * @param  array<string, mixed> $input Decoded JSON request body.
      * @return string
      *
      * @throws InvalidInputException
@@ -895,6 +915,7 @@ class Api extends Controller
      * Validate the optional "description" field. Null when absent or explicitly null — on a
      * PATCH the latter clears the description.
      *
+     * @param  array<string, mixed> $input Decoded JSON request body.
      * @return ?string
      *
      * @throws InvalidInputException
@@ -922,6 +943,7 @@ class Api extends Controller
      * clean tag strings. Commas are rejected because the DB column stores tags
      * comma-separated.
      *
+     * @param  array<string, mixed> $input Decoded JSON request body.
      * @return string[]
      *
      * @throws InvalidInputException
@@ -966,6 +988,7 @@ class Api extends Controller
      * rejects non-finite values (e.g. a JSON 1e999, which decodes to INF). Null when absent
      * or explicitly null — on a PATCH the latter clears the estimate.
      *
+     * @param  array<string, mixed> $input Decoded JSON request body.
      * @return ?float
      *
      * @throws InvalidInputException
@@ -990,6 +1013,7 @@ class Api extends Controller
      * Validate and parse the optional "dueDate" field. Null when absent or explicitly null —
      * on a PATCH the latter clears the due date.
      *
+     * @param  array<string, mixed> $input Decoded JSON request body.
      * @return ?CarbonImmutable
      *
      * @throws InvalidInputException

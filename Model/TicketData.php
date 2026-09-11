@@ -15,7 +15,7 @@ readonly class TicketData
      * @param  string           $name           Ticket headline.
      * @param  ?string          $status         Status type label (e.g. NEW, INPROGRESS).
      * @param  ?int             $milestoneId    Milestone ID, null if unset.
-     * @param  array            $tags           Tags as string array.
+     * @param  string[]         $tags           Tags as string array.
      * @param  ?string          $worker         Username (email) of the assigned editor.
      * @param  ?float           $plannedHours   Planned hours.
      * @param  ?float           $remainingHours Remaining hours.
