@@ -516,7 +516,7 @@ git clone https://github.com/ITK-Leantime/leantime_databridge.git app/Plugins/Da
 Run composer install:
 
 ```shell name=development-install
-docker run --interactive --rm --volume ${PWD}:/app itkdev/php8.3-fpm:latest composer install
+docker run --interactive --rm --volume ${PWD}:/app itkdev/php8.3-fpm:latest composer install --no-security-blocking
 ```
 
 ### Composer normalize
