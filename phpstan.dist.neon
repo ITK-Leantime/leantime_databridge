@@ -1,0 +1,15 @@
+parameters:
+    level: 6
+    paths:
+        - .
+
+    excludePaths:
+        - vendor
+        - node_modules
+
+    ignoreErrors:
+        - '#Constant (APP_ROOT|BASE_URL) not found.#'
+
+# Local Variables:
+# mode: yaml
+# End:
