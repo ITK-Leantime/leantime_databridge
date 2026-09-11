@@ -7,14 +7,22 @@ namespace Leantime\Plugins\Databridge\Model;
  */
 readonly class ResponseData
 {
+    /**
+     * @param  array<string, mixed> $parameters   Echo of the request parameters the response answers.
+     * @param  int                  $resultsCount Number of entries in $results.
+     * @param  array<int, object>   $results      Result payload.
+     */
     public function __construct(
         public array $parameters,
         public int $resultsCount,
         public array $results,
-    ) {}
+    ) {
+    }
 
     /**
      * Convert to array for JSON serialization.
+     *
+     * @return array<string, mixed>
      */
     public function toArray(): array
     {

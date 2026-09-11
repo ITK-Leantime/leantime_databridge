@@ -1,0 +1,49 @@
+on: pull_request
+name: Review
+jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    name: Changelog should be updated
+    strategy:
+      fail-fast: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Git fetch
+        run: git fetch
+
+      - name: Check that changelog has been updated.
+        run: git diff --exit-code origin/${{ github.base_ref }} -- CHANGELOG.md && exit 1 || exit 0
+
+  run-code-blocks-from-readme:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        blocks:
+          - development-install markdown-check
+          - development-install composer-normalize
+          - development-install check-coding-standards
+          # - development-install prettier-check
+          - development-install shell-check
+          - development-install code-analysis
+          - development-install test-create-release
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      # https://github.com/actions/setup-go
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.0'
+
+      # https://github.com/mikkelricky/markdown-code-runner
+      # We need to run as root in GitHub Actions, hence the `--substitutions` hack!
+      - run: |
+          go run github.com/mikkelricky/markdown-code-runner@latest run \
+            --verbose --echo '👉 ' \
+            --substitutions '{"docker run ": "docker run --user root ", "docker compose run ": "docker compose run --user root "}' \
+            ${{ matrix.blocks }}

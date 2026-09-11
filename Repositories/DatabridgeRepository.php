@@ -18,6 +18,8 @@ class DatabridgeRepository
 
     /**
      * Create a new query builder instance.
+     *
+     * @return Builder
      */
     private function query(): Builder
     {
@@ -28,7 +30,8 @@ class DatabridgeRepository
      * Get distinct project IDs for tickets assigned to or collaborated on by a given username,
      * restricted to the allowed projects.
      *
-     * @param  ?int[]  $allowedProjects  Granted project IDs; null = no restriction.
+     * @param  string $username        Username (email) to match tickets for.
+     * @param  ?int[] $allowedProjects Granted project IDs; null = no restriction.
      * @return int[]
      */
     public function getProjectIdsForUser(string $username, ?array $allowedProjects): array
@@ -42,8 +45,14 @@ class DatabridgeRepository
     /**
      * Get tickets assigned to or collaborated on by a given username.
      *
-     * @param  ?int[]  $statusIds  Optional list of status ints to filter on.
-     * @param  ?int[]  $allowedProjects  Granted project IDs; null = no restriction.
+     * @param  string  $username        Username (email) to match tickets for.
+     * @param  int     $sinceId         Keyset pagination: only tickets with id >= sinceId.
+     * @param  int     $limit           Maximum number of rows to return.
+     * @param  ?string $dateFrom        Optional lower bound (inclusive) on dateToFinish.
+     * @param  ?string $dateTo          Optional upper bound (inclusive) on dateToFinish.
+     * @param  ?int[]  $statusIds       Optional list of status ints to filter on.
+     * @param  ?int[]  $allowedProjects Granted project IDs; null = no restriction.
+     * @return array<int, object>
      */
     public function getTicketsByUsername(string $username, int $sinceId, int $limit, ?string $dateFrom, ?string $dateTo, ?array $statusIds, ?array $allowedProjects): array
     {
@@ -74,8 +83,8 @@ class DatabridgeRepository
      * same in Users::getUserByEmail). source 'api' rows are Leantime API-key service
      * accounts, excluded here as core excludes them from its own user lists.
      *
-     * @param  ?int  $projectId  Narrow to one project; null = every allowed project.
-     * @param  ?int[]  $allowedProjects  Granted project IDs; null = no restriction.
+     * @param  ?int   $projectId       Narrow to one project; null = every allowed project.
+     * @param  ?int[] $allowedProjects Granted project IDs; null = no restriction.
      * @return array<int, object> Rows of user columns plus a comma-joined projectIds string.
      */
     public function getUsers(?int $projectId, ?array $allowedProjects): array
@@ -96,6 +105,8 @@ class DatabridgeRepository
 
     /**
      * Resolve a username (email) to the zp_user id, or null when unknown.
+     *
+     * @return ?int
      */
     public function findUserIdByUsername(string $username): ?int
     {
@@ -112,6 +123,8 @@ class DatabridgeRepository
      *
      * Returns the row rather than the bare state because state NULL is a legal
      * value (= open) and would be indistinguishable from "no such project".
+     *
+     * @return ?object
      */
     public function findProjectById(int $projectId): ?object
     {
@@ -126,6 +139,8 @@ class DatabridgeRepository
      * Whether a milestone with the given ID exists in the given project.
      *
      * Milestones live in zp_tickets as rows with type 'milestone'.
+     *
+     * @return bool
      */
     public function milestoneExistsInProject(int $milestoneId, int $projectId): bool
     {
@@ -144,6 +159,8 @@ class DatabridgeRepository
      * optional columns are inserted as null (never ''): the float and datetime columns
      * are nullable, and '' would be rejected under strict SQL mode. Defaults mirror
      * core's create path: type 'task', date/modified now UTC, kanbanSortIndex 0.
+     *
+     * @return int
      */
     public function insertTicket(CreateTicketData $data): int
     {
@@ -176,6 +193,8 @@ class DatabridgeRepository
     /**
      * Fetch a single ticket row by ID in the same column shape as getTicketsByUsername(),
      * so both can share one row-to-TicketData mapping.
+     *
+     * @return ?object
      */
     public function findTicketRowById(int $ticketId): ?object
     {
@@ -190,7 +209,8 @@ class DatabridgeRepository
     /**
      * List projects, restricted to the allowed projects.
      *
-     * @param  ?int[]  $allowedProjects  Granted project IDs; null = no restriction.
+     * @param  ?int[] $allowedProjects Granted project IDs; null = no restriction.
+     * @return array<int, object>
      */
     public function getProjects(?array $allowedProjects): array
     {
@@ -207,7 +227,9 @@ class DatabridgeRepository
      * List milestones, optionally narrowed to one project and always restricted to the
      * allowed projects.
      *
-     * @param  ?int[]  $allowedProjects  Granted project IDs; null = no restriction.
+     * @param  ?int   $projectId       Narrow to one project; null = every allowed project.
+     * @param  ?int[] $allowedProjects Granted project IDs; null = no restriction.
+     * @return array<int, object>
      */
     public function getMilestones(?int $projectId, ?array $allowedProjects): array
     {
@@ -228,7 +250,10 @@ class DatabridgeRepository
      * Joins zp_tickets so entries can be project-scoped at all: zp_timesheets only knows
      * the ticket. Milestones are not excluded — core lets time be booked on them.
      *
-     * @param  ?int[]  $allowedProjects  Granted project IDs; null = no restriction.
+     * @param  ?int   $ticketId        Narrow to one ticket; null = no ticket filter.
+     * @param  ?int   $projectId       Narrow to one project; null = no project filter.
+     * @param  ?int[] $allowedProjects Granted project IDs; null = no restriction.
+     * @return array<int, object>
      */
     public function getTimesheets(?int $ticketId, ?int $projectId, ?array $allowedProjects): array
     {
@@ -250,6 +275,8 @@ class DatabridgeRepository
      *
      * Returns every comment on the ticket, replies included: zp_comment threads via
      * commentParent, and dropping replies would silently hide part of the conversation.
+     *
+     * @return array<int, object>
      */
     public function getTicketComments(int $ticketId): array
     {
@@ -269,6 +296,8 @@ class DatabridgeRepository
      *
      * Selects no content column because there is none: zp_file only holds metadata, the
      * bytes live in the storage backend under encName.
+     *
+     * @return array<int, object>
      */
     public function getTicketFiles(int $ticketId): array
     {
@@ -291,6 +320,8 @@ class DatabridgeRepository
      * The affected-row count is deliberately ignored: writing the values a row already has
      * affects zero rows, so it cannot distinguish "no such ticket" — callers establish
      * existence beforehand via findTicketRowById().
+     *
+     * @return void
      */
     public function updateTicket(UpdateTicketData $data): void
     {
@@ -306,6 +337,8 @@ class DatabridgeRepository
      * description is written as null when unset rather than '': the column is nullable and
      * "no note" is not the same as an empty note. Invoicing and payment flags are left at
      * their column defaults — this API does not do billing.
+     *
+     * @return int
      */
     public function insertTimesheet(CreateTimesheetData $data): int
     {
@@ -326,6 +359,8 @@ class DatabridgeRepository
 
     /**
      * Fetch a single time entry by ID in the same column shape as getTimesheets().
+     *
+     * @return ?object
      */
     public function findTimesheetRowById(int $timesheetId): ?object
     {
@@ -343,6 +378,8 @@ class DatabridgeRepository
      *
      * commentParent 0 marks a top-level comment; status is core's default ''. Replies are
      * not creatable through this API — nothing needs them yet.
+     *
+     * @return int
      */
     public function insertTicketComment(CreateCommentData $data): int
     {
@@ -361,6 +398,8 @@ class DatabridgeRepository
 
     /**
      * Fetch a single comment by ID in the same column shape as getTicketComments().
+     *
+     * @return ?object
      */
     public function findCommentRowById(int $commentId): ?object
     {
@@ -378,7 +417,9 @@ class DatabridgeRepository
      * Collaborator via zp_entity_relationship. The relationship join can multiply rows
      * for tickets with several collaborators — callers deduplicate with DISTINCT.
      *
-     * @param  ?int[]  $allowedProjects  Granted project IDs; null = no restriction.
+     * @param  string $username        Username (email) to match tickets for.
+     * @param  ?int[] $allowedProjects Granted project IDs; null = no restriction.
+     * @return Builder
      */
     private function buildUserTicketsQuery(string $username, ?array $allowedProjects): Builder
     {

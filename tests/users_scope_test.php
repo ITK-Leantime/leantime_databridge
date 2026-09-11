@@ -41,6 +41,8 @@ $failures = [];
 
 /**
  * Record a failure unless $actual matches $expected.
+ *
+ * @return void
  */
 function check(string $description, mixed $expected, mixed $actual): void
 {
@@ -69,10 +71,10 @@ function get(string $baseUrl, string $path, string $key): array
 {
     global $hostHeader;
 
-    $handle = curl_init($baseUrl.$path);
+    $handle = curl_init($baseUrl . $path);
     curl_setopt_array($handle, [
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER => ['x-api-key: '.$key, 'Host: '.$hostHeader],
+        CURLOPT_HTTPHEADER => ['x-api-key: ' . $key, 'Host: ' . $hostHeader],
         CURLOPT_SSL_VERIFYPEER => false,
         CURLOPT_SSL_VERIFYHOST => 0,
     ]);
@@ -92,14 +94,14 @@ check('unrestricted key sees at least one user', true, count($all['body']['resul
 foreach ($all['body']['results'] ?? [] as $user) {
     foreach (['id', 'username', 'firstname', 'lastname', 'projects'] as $field) {
         if (! array_key_exists($field, $user)) {
-            $failures[] = "user row is missing field '{$field}'";
+            $failures[] = sprintf("user row is missing field '%s'", $field);
         }
     }
 
     // A leaked credential field would be far worse than a missing one.
     foreach (['password', 'twoFASecret', 'session', 'pwReset'] as $secret) {
         if (array_key_exists($secret, $user)) {
-            $failures[] = "user row exposes '{$secret}'";
+            $failures[] = sprintf("user row exposes '%s'", $secret);
         }
     }
 }
@@ -120,18 +122,18 @@ check('scoped key sees no project outside its grant', [], array_values(array_uni
 
 // Naming an ungranted project must be refused rather than answered.
 $ungranted = $scopedProject + 1;
-$refused = get($baseUrl, '/api/databridge/users?projectId='.$ungranted, $scopedKey);
+$refused = get($baseUrl, '/api/databridge/users?projectId=' . $ungranted, $scopedKey);
 check('ungranted projectId is refused with 403', 403, $refused['status']);
 check('refusal carries no user rows', true, ! isset($refused['body']['results']));
 
 // A key must not be able to widen its own scope by naming its granted project explicitly.
-$narrowed = get($baseUrl, '/api/databridge/users?projectId='.$scopedProject, $scopedKey);
+$narrowed = get($baseUrl, '/api/databridge/users?projectId=' . $scopedProject, $scopedKey);
 check('granted projectId is allowed', 200, $narrowed['status']);
 
 if ($failures !== []) {
     fwrite(STDERR, "users_scope_test FAILED:\n");
     foreach ($failures as $failure) {
-        fwrite(STDERR, "  - {$failure}\n");
+        fwrite(STDERR, '  - ' . $failure . "\n");
     }
     exit(1);
 }

@@ -11,15 +11,16 @@ namespace Leantime\Plugins\Databridge\Model;
 readonly class CreateCommentData
 {
     /**
-     * @param  int  $ticketId  Ticket to comment on (grant- and existence-checked).
-     * @param  int  $projectId  The ticket's project, carried for the grant re-assert and logging.
-     * @param  int  $userId  Resolved zp_user.id of the comment author.
-     * @param  string  $text  Comment body.
+     * @param  int    $ticketId  Ticket to comment on (grant- and existence-checked).
+     * @param  int    $projectId The ticket's project, carried for the grant re-assert and logging.
+     * @param  int    $userId    Resolved zp_user.id of the comment author.
+     * @param  string $text      Comment body.
      */
     public function __construct(
         public int $ticketId,
         public int $projectId,
         public int $userId,
         public string $text,
-    ) {}
+    ) {
+    }
 }

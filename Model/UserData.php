@@ -11,16 +11,16 @@ namespace Leantime\Plugins\Databridge\Model;
 readonly class UserData
 {
     /**
-     * @param  int  $id  User ID.
-     * @param  string  $username  Login name (an email address), and the value the
-     *                            ticket and timesheet endpoints expect as "username".
+     * @param  int     $id         User ID.
+     * @param  string  $username   Login name (an email address), and the value the
+     *                             ticket and timesheet endpoints expect as "username".
      * @param  string  $firstname  Given name.
-     * @param  string  $lastname  Family name.
-     * @param  ?string  $jobTitle  Free-text job title, or null when unset.
-     * @param  ?string  $department  Free-text department, or null when unset.
-     * @param  list<int>  $projects  Granted project IDs this user is assigned to. Already
-     *                               filtered to the calling key's own grant, so it never
-     *                               reveals projects the key cannot itself reach.
+     * @param  string  $lastname   Family name.
+     * @param  ?string $jobTitle   Free-text job title, or null when unset.
+     * @param  ?string $department Free-text department, or null when unset.
+     * @param  int[]   $projects   Granted project IDs this user is assigned to. Already
+     *                             filtered to the calling key's own grant, so it never
+     *                             reveals projects the key cannot itself reach.
      */
     public function __construct(
         public int $id,
@@ -30,5 +30,6 @@ readonly class UserData
         public ?string $jobTitle,
         public ?string $department,
         public array $projects,
-    ) {}
+    ) {
+    }
 }
