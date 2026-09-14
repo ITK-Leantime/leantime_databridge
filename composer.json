@@ -4,6 +4,7 @@
     "license": "MIT",
     "type": "leantime-plugin",
     "version": "1.0.0",
+    "authors": [],
     "homepage": "https://github.com/ITK-Leantime/leantime_databridge",
     "require-dev": {
         "ergebnis/composer-normalize": "^2.42",
