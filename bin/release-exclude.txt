@@ -1,14 +1,17 @@
 
 *.tar.gz
+.claude
 .DS_Store
 .editorconfig
 .git*
+.idea
 .markdownlint.jsonc
 .markdownlintignore
 .prettierignore
 .prettierrc
 bin
 checksum.txt
+CLAUDE.md
 compose.yaml
 composer.lock
 node_modules
