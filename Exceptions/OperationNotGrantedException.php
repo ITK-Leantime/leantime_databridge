@@ -9,6 +9,10 @@ use Leantime\Plugins\Databridge\Model\Operation;
  */
 class OperationNotGrantedException extends \Exception
 {
+    /**
+     * @param  string    $userName  Display name of the API user, for logging.
+     * @param  Operation $operation The operation the endpoint requires.
+     */
     public function __construct(
         public readonly string $userName,
         public readonly Operation $operation,

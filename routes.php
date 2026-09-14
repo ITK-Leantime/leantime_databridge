@@ -6,13 +6,14 @@ use Leantime\Plugins\Databridge\Middleware\ApiKeyAuth;
 use Leantime\Plugins\Databridge\Model\ApiUser;
 use Leantime\Plugins\Databridge\Services\Databridge;
 
-/**
+/*
  * Build the API controller and hand it plus the authenticated ApiUser to $handler.
  *
  * Fails loud if a route was wired without the ApiKeyAuth middleware: without an
  * authenticated ApiUser there is no project grant, and serving would be fail-open. Every
  * route below goes through here so that check can never be forgotten on a new endpoint.
  */
+
 $databridge = function (callable $handler): callable {
     return function (string ...$routeParams) use ($handler) {
         $controller = app()->make(Api::class);
@@ -33,7 +34,7 @@ $databridge = function (callable $handler): callable {
  * declared outside an ApiKeyAuth group is PUBLIC. Always declare routes inside the group
  * matching the operation they require; add a new group for delete endpoints.
  */
-Route::middleware([ApiKeyAuth::class.':read'])->group(function () use ($databridge): void {
+Route::middleware([ApiKeyAuth::class . ':read'])->group(function () use ($databridge): void {
     Route::get('/api/databridge/tickets', $databridge(
         fn (Api $controller, ApiUser $apiUser) => $controller->tickets(request()->query(), $apiUser)
     ));
@@ -75,7 +76,7 @@ Route::middleware([ApiKeyAuth::class.':read'])->group(function () use ($databrid
     ));
 });
 
-Route::middleware([ApiKeyAuth::class.':write'])->group(function () use ($databridge): void {
+Route::middleware([ApiKeyAuth::class . ':write'])->group(function () use ($databridge): void {
     Route::post('/api/databridge/tickets', $databridge(
         fn (Api $controller, ApiUser $apiUser) => $controller->createTicket(request()->json()->all(), $apiUser)
     ));

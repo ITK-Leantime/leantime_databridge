@@ -12,13 +12,13 @@ use Carbon\CarbonInterface;
 readonly class MilestoneData
 {
     /**
-     * @param  int  $id  Milestone ID.
-     * @param  int  $projectId  Project ID.
-     * @param  string  $name  Milestone headline.
-     * @param  int  $status  The per-project status int.
-     * @param  ?string  $statusType  Stable status type (NEW/INPROGRESS/DONE), null when the
-     *                               project's scheme gives the status no type.
-     * @param  ?CarbonInterface  $dueDate  Due date (dateToFinish).
+     * @param  int              $id         Milestone ID.
+     * @param  int              $projectId  Project ID.
+     * @param  string           $name       Milestone headline.
+     * @param  int              $status     The per-project status int.
+     * @param  ?string          $statusType Stable status type (NEW/INPROGRESS/DONE), null when the
+     *                                      project's scheme gives the status no type.
+     * @param  ?CarbonInterface $dueDate    Due date (dateToFinish).
      */
     public function __construct(
         public int $id,
@@ -27,5 +27,6 @@ readonly class MilestoneData
         public int $status,
         public ?string $statusType,
         public ?CarbonInterface $dueDate,
-    ) {}
+    ) {
+    }
 }

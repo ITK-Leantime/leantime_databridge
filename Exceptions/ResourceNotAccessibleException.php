@@ -20,8 +20,10 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 final class ResourceNotAccessibleException extends \Exception
 {
     /**
-     * @param  ?array<string, mixed>  $warningContext  Log context when this refusal is worth
-     *                                                 a warning line; null to log nothing.
+     * @param  string                $message        Consumer-safe message rendered in the response.
+     * @param  int                   $statusCode     HTTP status code for the rendered response.
+     * @param  ?array<string, mixed> $warningContext Log context when this refusal is worth
+     *                                               a warning line; null to log nothing.
      */
     private function __construct(
         string $message,
@@ -34,6 +36,8 @@ final class ResourceNotAccessibleException extends \Exception
     /**
      * The key's grant does not cover the project. Existence is never checked, so this
      * answer is the same for a real and a nonexistent project ID.
+     *
+     * @return self
      */
     public static function projectNotGranted(int $projectId, string $userName): self
     {
@@ -47,6 +51,8 @@ final class ResourceNotAccessibleException extends \Exception
     /**
      * The ticket does not exist, or exists outside the grant. Both give the same 404 on
      * purpose: a distinct 403 would tell an ungranted key which ticket IDs are real.
+     *
+     * @return self
      */
     public static function ticketNotAccessible(): self
     {
@@ -62,6 +68,8 @@ final class ResourceNotAccessibleException extends \Exception
      * A refused project grant still gets a warning, mirroring ApiKeyAuth's refused-operation
      * line — it usually means a key is configured too narrowly. An unknown ticket is
      * ordinary client traffic and is not logged at all.
+     *
+     * @return bool
      */
     public function report(): bool
     {
@@ -75,6 +83,8 @@ final class ResourceNotAccessibleException extends \Exception
     /**
      * Called by core's ExceptionHandler. Error shape matches every other Databridge
      * error response.
+     *
+     * @return JsonResponse
      */
     public function render(): JsonResponse
     {

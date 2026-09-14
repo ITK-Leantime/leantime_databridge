@@ -13,13 +13,13 @@ use Carbon\CarbonImmutable;
 readonly class CreateTimesheetData
 {
     /**
-     * @param  int  $ticketId  Ticket to book the time on (grant- and existence-checked).
-     * @param  int  $projectId  The ticket's project, carried for the grant re-assert and logging.
-     * @param  int  $userId  Resolved zp_user.id the time is booked for.
-     * @param  CarbonImmutable  $workDate  The day the work was done, in UTC.
-     * @param  float  $hours  Hours to book (> 0).
-     * @param  ?string  $description  Optional note, null if unset.
-     * @param  string  $kind  Booking kind; defaults to core's GENERAL_BILLABLE.
+     * @param  int             $ticketId    Ticket to book the time on (grant- and existence-checked).
+     * @param  int             $projectId   The ticket's project, carried for the grant re-assert and logging.
+     * @param  int             $userId      Resolved zp_user.id the time is booked for.
+     * @param  CarbonImmutable $workDate    The day the work was done, in UTC.
+     * @param  float           $hours       Hours to book (> 0).
+     * @param  ?string         $description Optional note, null if unset.
+     * @param  string          $kind        Booking kind; defaults to core's GENERAL_BILLABLE.
      */
     public function __construct(
         public int $ticketId,
@@ -29,5 +29,6 @@ readonly class CreateTimesheetData
         public float $hours,
         public ?string $description,
         public string $kind,
-    ) {}
+    ) {
+    }
 }

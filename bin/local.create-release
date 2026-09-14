@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -o errexit -o errtrace -o noclobber -o nounset -o pipefail
+
+export plugin_name=Databridge
+export plugin_repo_url=https://github.com/ITK-Leantime/leantime_databridge/
+
+buildRelease() {
+  return
+}
+
+export -f buildRelease

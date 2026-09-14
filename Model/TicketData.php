@@ -10,18 +10,18 @@ use Carbon\CarbonInterface;
 readonly class TicketData
 {
     /**
-     * @param  int  $id  Ticket ID.
-     * @param  int  $projectId  Project ID.
-     * @param  string  $name  Ticket headline.
-     * @param  ?string  $status  Status type label (e.g. NEW, INPROGRESS).
-     * @param  ?int  $milestoneId  Milestone ID, null if unset.
-     * @param  array  $tags  Tags as string array.
-     * @param  ?string  $worker  Username (email) of the assigned editor.
-     * @param  ?float  $plannedHours  Planned hours.
-     * @param  ?float  $remainingHours  Remaining hours.
-     * @param  ?CarbonInterface  $dueDate  Due date (dateToFinish).
-     * @param  ?CarbonInterface  $resolutionDate  Resolution date (editTo).
-     * @param  ?CarbonInterface  $modified  Last modified datetime.
+     * @param  int              $id             Ticket ID.
+     * @param  int              $projectId      Project ID.
+     * @param  string           $name           Ticket headline.
+     * @param  ?string          $status         Status type label (e.g. NEW, INPROGRESS).
+     * @param  ?int             $milestoneId    Milestone ID, null if unset.
+     * @param  string[]         $tags           Tags as string array.
+     * @param  ?string          $worker         Username (email) of the assigned editor.
+     * @param  ?float           $plannedHours   Planned hours.
+     * @param  ?float           $remainingHours Remaining hours.
+     * @param  ?CarbonInterface $dueDate        Due date (dateToFinish).
+     * @param  ?CarbonInterface $resolutionDate Resolution date (editTo).
+     * @param  ?CarbonInterface $modified       Last modified datetime.
      */
     public function __construct(
         public int $id,
@@ -36,5 +36,6 @@ readonly class TicketData
         public ?CarbonInterface $dueDate,
         public ?CarbonInterface $resolutionDate,
         public ?CarbonInterface $modified,
-    ) {}
+    ) {
+    }
 }

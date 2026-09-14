@@ -14,13 +14,13 @@ use Carbon\CarbonInterface;
 readonly class FileData
 {
     /**
-     * @param  int  $id  File ID.
-     * @param  int  $ticketId  The ticket the file is attached to (zp_file.moduleId).
-     * @param  ?string  $filename  Original upload name (zp_file.realName).
-     * @param  ?string  $extension  File extension as recorded on upload.
-     * @param  ?int  $userId  Uploader's zp_user id.
-     * @param  ?string  $username  Uploader's username (email), null when the user is gone.
-     * @param  ?CarbonInterface  $uploaded  Upload datetime.
+     * @param  int              $id        File ID.
+     * @param  int              $ticketId  The ticket the file is attached to (zp_file.moduleId).
+     * @param  ?string          $filename  Original upload name (zp_file.realName).
+     * @param  ?string          $extension File extension as recorded on upload.
+     * @param  ?int             $userId    Uploader's zp_user id.
+     * @param  ?string          $username  Uploader's username (email), null when the user is gone.
+     * @param  ?CarbonInterface $uploaded  Upload datetime.
      */
     public function __construct(
         public int $id,
@@ -30,5 +30,6 @@ readonly class FileData
         public ?int $userId,
         public ?string $username,
         public ?CarbonInterface $uploaded,
-    ) {}
+    ) {
+    }
 }

@@ -8,4 +8,6 @@ namespace Leantime\Plugins\Databridge\Exceptions;
  * The message is written for the API consumer and is safe to return verbatim
  * in a 400 response.
  */
-class InvalidInputException extends \Exception {}
+class InvalidInputException extends \Exception
+{
+}

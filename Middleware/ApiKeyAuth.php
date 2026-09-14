@@ -36,22 +36,30 @@ class ApiKeyAuth
 
     private const DEFAULT_FAILED_ATTEMPT_DECAY_SECONDS = 60;
 
+    /**
+     * @param  ApiUsers    $apiUsers Resolves and authorizes API keys from the auth YAML file.
+     * @param  RateLimiter $limiter  Throttles failed authentication attempts per IP.
+     */
     public function __construct(
         private readonly ApiUsers $apiUsers,
         private readonly RateLimiter $limiter,
-    ) {}
+    ) {
+    }
 
     /**
      * Authenticate the API key header and authorize the required operation.
      *
-     * @param  string  $operation  Backed value of a Model\Operation case, declared on the route.
+     * @param  IncomingRequest $request   The incoming request.
+     * @param  Closure         $next      The next middleware in the pipeline.
+     * @param  string          $operation Backed value of a Model\Operation case, declared on the route.
+     * @return Response
      */
     public function handle(IncomingRequest $request, Closure $next, string $operation): Response
     {
         // A typo in routes.php is a developer error: from() throws, failing loudly with a 500.
         $requiredOperation = Operation::from($operation);
 
-        $throttleKey = 'databridge-auth-failures:'.$request->getClientIp();
+        $throttleKey = 'databridge-auth-failures:' . $request->getClientIp();
 
         if ($this->limiter->tooManyAttempts($throttleKey, $this->maxFailedAttempts())) {
             Log::warning('Databridge auth: too many failed authentication attempts', ['ip' => $request->getClientIp()]);
@@ -82,6 +90,8 @@ class ApiKeyAuth
     /**
      * Maximum failed attempts per IP before returning 429, from
      * LEAN_DATABRIDGE_RATELIMIT_ATTEMPTS (default 20).
+     *
+     * @return int
      */
     private function maxFailedAttempts(): int
     {
@@ -91,6 +101,8 @@ class ApiKeyAuth
     /**
      * Window in seconds over which failed attempts are counted, from
      * LEAN_DATABRIDGE_RATELIMIT_DECAY (default 60).
+     *
+     * @return int
      */
     private function decaySeconds(): int
     {
@@ -102,6 +114,8 @@ class ApiKeyAuth
      * is unset or not a positive integer. env() (not config()) matches the plugin's other
      * settings; a misconfigured value must never disable or invert throttling — e.g. a 0
      * would make every request exceed the limit.
+     *
+     * @return int
      */
     private function positiveIntEnv(string $key, int $default): int
     {

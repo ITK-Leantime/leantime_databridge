@@ -18,14 +18,15 @@ namespace Leantime\Plugins\Databridge\Model;
 readonly class UpdateTicketData
 {
     /**
-     * @param  int  $ticketId  Ticket to update (grant- and existence-checked by the caller).
-     * @param  int  $projectId  The ticket's project, carried for the grant re-assert and logging.
-     * @param  array<string, mixed>  $columns  Non-empty map of zp_tickets column => value for
+     * @param  int                  $ticketId  Ticket to update (grant- and existence-checked by the caller).
+     * @param  int                  $projectId The ticket's project, carried for the grant re-assert and logging.
+     * @param  array<string, mixed> $columns   Non-empty map of zp_tickets column => value for
      *                                         the provided fields only.
      */
     public function __construct(
         public int $ticketId,
         public int $projectId,
         public array $columns,
-    ) {}
+    ) {
+    }
 }

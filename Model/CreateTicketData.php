@@ -19,16 +19,16 @@ use Carbon\CarbonImmutable;
 readonly class CreateTicketData
 {
     /**
-     * @param  int  $projectId  Target project (grant- and existence-checked by the caller).
-     * @param  int  $assigneeId  Resolved zp_user.id of the assignee (becomes editorId AND userId).
-     * @param  string  $name  Ticket headline (<= 255 chars).
-     * @param  ?string  $description  Optional description, null if unset.
-     * @param  ?CarbonImmutable  $dueDate  Due date in UTC, null if unset.
-     * @param  string[]  $tags  Clean tag list (no commas, deduplicated); [] if unset.
-     * @param  ?float  $plannedHours  Planned hours, null if unset.
-     * @param  ?int  $milestoneId  Milestone to attach the ticket to, null if unset (already
-     *                             verified to be a milestone in the target project).
-     * @param  int  $statusId  Concrete per-project status int (already resolved).
+     * @param  int              $projectId    Target project (grant- and existence-checked by the caller).
+     * @param  int              $assigneeId   Resolved zp_user.id of the assignee (becomes editorId AND userId).
+     * @param  string           $name         Ticket headline (<= 255 chars).
+     * @param  ?string          $description  Optional description, null if unset.
+     * @param  ?CarbonImmutable $dueDate      Due date in UTC, null if unset.
+     * @param  string[]         $tags         Clean tag list (no commas, deduplicated); [] if unset.
+     * @param  ?float           $plannedHours Planned hours, null if unset.
+     * @param  ?int             $milestoneId  Milestone to attach the ticket to, null if unset (already
+     *                                        verified to be a milestone in the target project).
+     * @param  int              $statusId     Concrete per-project status int (already resolved).
      */
     public function __construct(
         public int $projectId,
@@ -40,5 +40,6 @@ readonly class CreateTicketData
         public ?float $plannedHours,
         public ?int $milestoneId,
         public int $statusId,
-    ) {}
+    ) {
+    }
 }
